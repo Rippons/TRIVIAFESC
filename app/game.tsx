@@ -243,8 +243,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: 0,
+    paddingBottom: 0,
   },
   categoryBox: { 
     flexDirection: 'row',
@@ -270,14 +270,15 @@ const styles = StyleSheet.create({
     flex: 1, 
     justifyContent: 'center', 
     alignItems: 'center',
-    minHeight: 200,
+    position: "absolute",
+    width: '100%',
+    bottom: 50
   },
   centerText: {
     color: '#666',
     fontSize: 16,
     textAlign: 'center',
     fontStyle: 'italic',
-    paddingHorizontal: 20,
   },
   feedbackContainer: {
     padding: 20,
