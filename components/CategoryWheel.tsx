@@ -1,13 +1,13 @@
-import React, { useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
-  Animated, 
-  Dimensions 
+import React, { useRef, useState } from 'react';
+import {
+  Animated,
+  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import Svg, { Circle, Path, Text as SvgText, G } from 'react-native-svg';
+import Svg, { Circle, G, Path, Text as SvgText } from 'react-native-svg';
 
 interface Props {
   categories: string[];
@@ -59,6 +59,7 @@ export default function CategoryWheel({ categories, onSelect }: Props) {
     console.log('📐 Posición final:', finalPosition);
     console.log('🔧 Ángulo ajustado:', adjustedAngle);
     console.log('🔢 Índice seleccionado:', selectedIndex);
+    console.log('✅ Categoría elegida:', chosen);
     console.log('✅ Categoría elegida:', chosen);
 
     Animated.timing(spinValue, {
