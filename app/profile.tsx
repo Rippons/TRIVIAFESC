@@ -1,21 +1,22 @@
 // app/profile.tsx
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function Profile() {
+  const { t, language, setLanguage } = useLanguage();
   const [isEditing, setIsEditing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   
   const [userData, setUserData] = useState({
-    name: 'Estudiante FESC',
+    name: t('profile.studentName'),
     email: 'estudiante@fesc.edu.co',
     career: 'Ingeniería de Sistemas',
     semester: '5°',
   });
 
   const [settings, setSettings] = useState({
-    language: 'Español',
     notifications: true,
     sound: true,
     vibration: true,
@@ -32,23 +33,31 @@ export default function Profile() {
   });
 
   const handleSave = () => {
-    Alert.alert('Perfil actualizado', '¡Tus datos han sido guardados!');
+    Alert.alert(t('profile.profileUpdated'), t('profile.profileUpdatedMessage'));
     setIsEditing(false);
   };
 
-  const handleLanguageChange = (lang: string) => {
-    setSettings({ ...settings, language: lang });
-    Alert.alert('Idioma cambiado', `El idioma se ha cambiado a ${lang}`);
+  const handleLanguageChange = async (lang: 'es' | 'en' | 'pt') => {
+    await setLanguage(lang);
+    const langNames = {
+      es: 'Español',
+      en: 'English',
+      pt: 'Português'
+    };
+    Alert.alert(
+      t('settings.languageChanged'), 
+      `${t('settings.languageChangedMessage')} ${langNames[lang]}`
+    );
   };
 
   const handleLogout = () => {
     Alert.alert(
-      'Cerrar sesión',
-      '¿Estás seguro de que deseas cerrar sesión?',
+      t('settings.logout'),
+      t('settings.logoutConfirm'),
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar sesión', style: 'destructive', onPress: () => {
-          Alert.alert('Sesión cerrada', 'Has cerrado sesión correctamente');
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.logout'), style: 'destructive', onPress: () => {
+          Alert.alert(t('settings.logoutSuccess'), t('settings.logoutSuccessMessage'));
           setShowSettings(false);
         }},
       ]
@@ -57,12 +66,12 @@ export default function Profile() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Eliminar cuenta',
-      '¿Estás seguro? Esta acción no se puede deshacer.',
+      t('settings.deleteAccount'),
+      t('settings.deleteConfirm'),
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => {
-          Alert.alert('Cuenta eliminada', 'Tu cuenta ha sido eliminada');
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.deleteAccount'), style: 'destructive', onPress: () => {
+          Alert.alert(t('settings.accountDeleted'), t('settings.accountDeletedMessage'));
         }},
       ]
     );
@@ -102,7 +111,7 @@ export default function Profile() {
         {/* Información del usuario */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>📚 Información Personal</Text>
+            <Text style={styles.sectionTitle}>{t('profile.personalInfo')}</Text>
             <TouchableOpacity onPress={() => isEditing ? handleSave() : setIsEditing(true)}>
               <Ionicons
                 name={isEditing ? 'checkmark-circle' : 'create'}
@@ -120,6 +129,7 @@ export default function Profile() {
                   style={styles.infoInput}
                   value={userData.email}
                   onChangeText={(text) => setUserData({ ...userData, email: text })}
+                  placeholder={t('profile.email')}
                 />
               ) : (
                 <Text style={styles.infoText}>{userData.email}</Text>
@@ -133,6 +143,7 @@ export default function Profile() {
                   style={styles.infoInput}
                   value={userData.career}
                   onChangeText={(text) => setUserData({ ...userData, career: text })}
+                  placeholder={t('profile.career')}
                 />
               ) : (
                 <Text style={styles.infoText}>{userData.career}</Text>
@@ -146,9 +157,10 @@ export default function Profile() {
                   style={styles.infoInput}
                   value={userData.semester}
                   onChangeText={(text) => setUserData({ ...userData, semester: text })}
+                  placeholder={t('profile.semester')}
                 />
               ) : (
-                <Text style={styles.infoText}>Semestre {userData.semester}</Text>
+                <Text style={styles.infoText}>{t('profile.semester')} {userData.semester}</Text>
               )}
             </View>
           </View>
@@ -156,32 +168,32 @@ export default function Profile() {
 
         {/* Estadísticas */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 Estadísticas</Text>
+          <Text style={styles.sectionTitle}>{t('profile.statistics')}</Text>
           
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{stats.gamesPlayed}</Text>
-              <Text style={styles.statLabel}>Partidas Jugadas</Text>
+              <Text style={styles.statLabel}>{t('profile.gamesPlayed')}</Text>
             </View>
 
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{stats.bestScore}</Text>
-              <Text style={styles.statLabel}>Mejor Puntaje</Text>
+              <Text style={styles.statLabel}>{t('profile.bestScore')}</Text>
             </View>
 
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{stats.totalScore}</Text>
-              <Text style={styles.statLabel}>Puntos Totales</Text>
+              <Text style={styles.statLabel}>{t('profile.totalPoints')}</Text>
             </View>
 
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{stats.averageScore.toFixed(1)}</Text>
-              <Text style={styles.statLabel}>Promedio</Text>
+              <Text style={styles.statLabel}>{t('profile.average')}</Text>
             </View>
           </View>
 
           <View style={styles.accuracyCard}>
-            <Text style={styles.accuracyTitle}>Precisión de Respuestas</Text>
+            <Text style={styles.accuracyTitle}>{t('profile.accuracy')}</Text>
             <View style={styles.accuracyBar}>
               <View
                 style={[
@@ -191,7 +203,7 @@ export default function Profile() {
               />
             </View>
             <Text style={styles.accuracyText}>
-              {stats.correctAnswers} correctas de {stats.totalQuestions} preguntas (
+              {stats.correctAnswers} {t('profile.correctAnswers')} {stats.totalQuestions} {t('profile.questions')} (
               {((stats.correctAnswers / stats.totalQuestions) * 100).toFixed(1)}%)
             </Text>
           </View>
@@ -199,27 +211,27 @@ export default function Profile() {
 
         {/* Logros */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🏅 Logros</Text>
+          <Text style={styles.sectionTitle}>{t('profile.achievements')}</Text>
           
           <View style={styles.achievementsContainer}>
             <View style={styles.achievementCard}>
               <Text style={styles.achievementIcon}>🎯</Text>
-              <Text style={styles.achievementName}>Primera Victoria</Text>
+              <Text style={styles.achievementName}>{t('profile.firstVictory')}</Text>
             </View>
 
             <View style={styles.achievementCard}>
               <Text style={styles.achievementIcon}>🔥</Text>
-              <Text style={styles.achievementName}>Racha de 5</Text>
+              <Text style={styles.achievementName}>{t('profile.streak5')}</Text>
             </View>
 
             <View style={[styles.achievementCard, styles.achievementLocked]}>
               <Text style={styles.achievementIcon}>👑</Text>
-              <Text style={styles.achievementName}>Perfección</Text>
+              <Text style={styles.achievementName}>{t('profile.perfection')}</Text>
             </View>
 
             <View style={[styles.achievementCard, styles.achievementLocked]}>
               <Text style={styles.achievementIcon}>⚡</Text>
-              <Text style={styles.achievementName}>Velocista</Text>
+              <Text style={styles.achievementName}>{t('profile.speedster')}</Text>
             </View>
           </View>
         </View>
@@ -236,7 +248,7 @@ export default function Profile() {
           <View style={styles.modalContent}>
             {/* Header del modal */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>⚙️ Configuración</Text>
+              <Text style={styles.modalTitle}>{t('settings.title')}</Text>
               <TouchableOpacity onPress={() => setShowSettings(false)}>
                 <Ionicons name="close-circle" size={32} color="#E53935" />
               </TouchableOpacity>
@@ -245,22 +257,22 @@ export default function Profile() {
             <ScrollView style={styles.modalScroll}>
               {/* Idioma */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>🌐 Idioma</Text>
+                <Text style={styles.settingSectionTitle}>{t('settings.language')}</Text>
                 <View style={styles.settingCard}>
                   <TouchableOpacity
                     style={[
                       styles.languageOption,
-                      settings.language === 'Español' && styles.languageOptionActive
+                      language === 'es' && styles.languageOptionActive
                     ]}
-                    onPress={() => handleLanguageChange('Español')}
+                    onPress={() => handleLanguageChange('es')}
                   >
                     <Text style={[
                       styles.languageText,
-                      settings.language === 'Español' && styles.languageTextActive
+                      language === 'es' && styles.languageTextActive
                     ]}>
-                      🇪🇸 Español
+                      {t('settings.spanish')}
                     </Text>
-                    {settings.language === 'Español' && (
+                    {language === 'es' && (
                       <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
                     )}
                   </TouchableOpacity>
@@ -268,17 +280,17 @@ export default function Profile() {
                   <TouchableOpacity
                     style={[
                       styles.languageOption,
-                      settings.language === 'English' && styles.languageOptionActive
+                      language === 'en' && styles.languageOptionActive
                     ]}
-                    onPress={() => handleLanguageChange('English')}
+                    onPress={() => handleLanguageChange('en')}
                   >
                     <Text style={[
                       styles.languageText,
-                      settings.language === 'English' && styles.languageTextActive
+                      language === 'en' && styles.languageTextActive
                     ]}>
-                      🇺🇸 English
+                      {t('settings.english')}
                     </Text>
-                    {settings.language === 'English' && (
+                    {language === 'en' && (
                       <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
                     )}
                   </TouchableOpacity>
@@ -286,17 +298,17 @@ export default function Profile() {
                   <TouchableOpacity
                     style={[
                       styles.languageOption,
-                      settings.language === 'Português' && styles.languageOptionActive
+                      language === 'pt' && styles.languageOptionActive
                     ]}
-                    onPress={() => handleLanguageChange('Português')}
+                    onPress={() => handleLanguageChange('pt')}
                   >
                     <Text style={[
                       styles.languageText,
-                      settings.language === 'Português' && styles.languageTextActive
+                      language === 'pt' && styles.languageTextActive
                     ]}>
-                      🇧🇷 Português
+                      {t('settings.portuguese')}
                     </Text>
-                    {settings.language === 'Português' && (
+                    {language === 'pt' && (
                       <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
                     )}
                   </TouchableOpacity>
@@ -305,12 +317,12 @@ export default function Profile() {
 
               {/* Notificaciones y Sonidos */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>🔔 Notificaciones y Sonido</Text>
+                <Text style={styles.settingSectionTitle}>{t('settings.notifications')}</Text>
                 <View style={styles.settingCard}>
                   <View style={styles.switchRow}>
                     <View style={styles.switchInfo}>
                       <Ionicons name="notifications" size={24} color="#666" />
-                      <Text style={styles.switchLabel}>Notificaciones</Text>
+                      <Text style={styles.switchLabel}>{t('settings.notificationsToggle')}</Text>
                     </View>
                     <Switch
                       value={settings.notifications}
@@ -323,7 +335,7 @@ export default function Profile() {
                   <View style={styles.switchRow}>
                     <View style={styles.switchInfo}>
                       <Ionicons name="volume-high" size={24} color="#666" />
-                      <Text style={styles.switchLabel}>Efectos de sonido</Text>
+                      <Text style={styles.switchLabel}>{t('settings.sound')}</Text>
                     </View>
                     <Switch
                       value={settings.sound}
@@ -336,7 +348,7 @@ export default function Profile() {
                   <View style={styles.switchRow}>
                     <View style={styles.switchInfo}>
                       <Ionicons name="phone-portrait" size={24} color="#666" />
-                      <Text style={styles.switchLabel}>Vibración</Text>
+                      <Text style={styles.switchLabel}>{t('settings.vibration')}</Text>
                     </View>
                     <Switch
                       value={settings.vibration}
@@ -350,12 +362,12 @@ export default function Profile() {
 
               {/* Apariencia */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>🎨 Apariencia</Text>
+                <Text style={styles.settingSectionTitle}>{t('settings.appearance')}</Text>
                 <View style={styles.settingCard}>
                   <View style={styles.switchRow}>
                     <View style={styles.switchInfo}>
                       <Ionicons name="moon" size={24} color="#666" />
-                      <Text style={styles.switchLabel}>Modo oscuro</Text>
+                      <Text style={styles.switchLabel}>{t('settings.darkMode')}</Text>
                     </View>
                     <Switch
                       value={settings.darkMode}
@@ -369,36 +381,36 @@ export default function Profile() {
 
               {/* Acerca de */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>ℹ️ Acerca de</Text>
+                <Text style={styles.settingSectionTitle}>{t('settings.about')}</Text>
                 <View style={styles.settingCard}>
                   <TouchableOpacity style={styles.infoRow}>
                     <Ionicons name="help-circle" size={24} color="#666" />
-                    <Text style={styles.infoText}>Ayuda y soporte</Text>
+                    <Text style={styles.infoText}>{t('settings.help')}</Text>
                     <Ionicons name="chevron-forward" size={20} color="#ccc" />
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.infoRow}>
                     <Ionicons name="document-text" size={24} color="#666" />
-                    <Text style={styles.infoText}>Términos y condiciones</Text>
+                    <Text style={styles.infoText}>{t('settings.terms')}</Text>
                     <Ionicons name="chevron-forward" size={20} color="#ccc" />
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.infoRow}>
                     <Ionicons name="shield-checkmark" size={24} color="#666" />
-                    <Text style={styles.infoText}>Política de privacidad</Text>
+                    <Text style={styles.infoText}>{t('settings.privacy')}</Text>
                     <Ionicons name="chevron-forward" size={20} color="#ccc" />
                   </TouchableOpacity>
 
                   <View style={styles.infoRow}>
                     <Ionicons name="information-circle" size={24} color="#666" />
-                    <Text style={styles.infoText}>Versión 1.0.0</Text>
+                    <Text style={styles.infoText}>{t('settings.version')} 1.0.0</Text>
                   </View>
                 </View>
               </View>
 
               {/* Acciones de cuenta */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>👤 Cuenta</Text>
+                <Text style={styles.settingSectionTitle}>{t('settings.account')}</Text>
                 <View style={styles.settingCard}>
                   <TouchableOpacity 
                     style={styles.actionButton}
@@ -406,7 +418,7 @@ export default function Profile() {
                   >
                     <Ionicons name="log-out" size={24} color="#FF9800" />
                     <Text style={[styles.actionText, { color: '#FF9800' }]}>
-                      Cerrar sesión
+                      {t('settings.logout')}
                     </Text>
                   </TouchableOpacity>
 
@@ -416,7 +428,7 @@ export default function Profile() {
                   >
                     <Ionicons name="trash" size={24} color="#F44336" />
                     <Text style={[styles.actionText, { color: '#F44336' }]}>
-                      Eliminar cuenta
+                      {t('settings.deleteAccount')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -710,7 +722,6 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
-
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',

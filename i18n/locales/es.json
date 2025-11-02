@@ -1,0 +1,115 @@
+{
+  "common": {
+    "start": "Iniciar",
+    "restart": "Reiniciar",
+    "cancel": "Cancelar",
+    "ok": "OK",
+    "save": "Guardar",
+    "close": "Cerrar",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "tabs": {
+    "leaderboard": "Puntuaciones",
+    "home": "Inicio",
+    "profile": "Perfil"
+  },
+  "home": {
+    "title": "Trivia FESC",
+    "subtitle": "Gira la ruleta y responde preguntas por categoría",
+    "startButton": "Iniciar Juego",
+    "footer": "Vidas: 3 • ¡Buena suerte!"
+  },
+  "game": {
+    "title": "Juego",
+    "lives": "Vidas",
+    "score": "Puntaje",
+    "category": "Categoría",
+    "loading": "Cargando pregunta...",
+    "spinWheel": "Gira la ruleta para elegir una categoría",
+    "noMoreQuestions": "Sin más preguntas",
+    "noMoreQuestionsMessage": "Esa categoría no tiene más preguntas. Gira de nuevo.",
+    "correctFeedback": "¡Correcto! +10 puntos",
+    "incorrectFeedback": "Incorrecto. La respuesta era:",
+    "questionsAnswered": "Preguntas respondidas"
+  },
+  "wheel": {
+    "title": "🎡 Gira la ruleta para elegir categoría",
+    "spin": "🎡 Girar Ruleta",
+    "spinning": "🌀 Girando...",
+    "result": "🎉 ¡Resultado!",
+    "availableCategories": "Categorías disponibles:"
+  },
+  "gameover": {
+    "title": "¡Juego terminado!",
+    "finalScore": "Puntaje final",
+    "restart": "Reiniciar"
+  },
+  "leaderboard": {
+    "title": "🏆 Mejores Puntuaciones",
+    "subtitle": "Top jugadores de Trivia FESC",
+    "empty": "📊 No hay puntuaciones aún",
+    "emptySubtitle": "¡Sé el primero en jugar!",
+    "points": "pts"
+  },
+  "profile": {
+    "title": "Perfil",
+    "studentName": "Estudiante FESC",
+    "personalInfo": "📚 Información Personal",
+    "email": "Correo electrónico",
+    "career": "Carrera",
+    "semester": "Semestre",
+    "statistics": "📊 Estadísticas",
+    "gamesPlayed": "Partidas Jugadas",
+    "bestScore": "Mejor Puntaje",
+    "totalPoints": "Puntos Totales",
+    "average": "Promedio",
+    "accuracy": "Precisión de Respuestas",
+    "correctAnswers": "correctas de",
+    "questions": "preguntas",
+    "achievements": "🏅 Logros",
+    "firstVictory": "Primera Victoria",
+    "streak5": "Racha de 5",
+    "perfection": "Perfección",
+    "speedster": "Velocista",
+    "profileUpdated": "Perfil actualizado",
+    "profileUpdatedMessage": "¡Tus datos han sido guardados!"
+  },
+  "settings": {
+    "title": "⚙️ Configuración",
+    "language": "🌐 Idioma",
+    "spanish": "🇪🇸 Español",
+    "english": "🇺🇸 English",
+    "portuguese": "🇧🇷 Português",
+    "languageChanged": "Idioma cambiado",
+    "languageChangedMessage": "El idioma se ha cambiado a",
+    "notifications": "🔔 Notificaciones y Sonido",
+    "notificationsToggle": "Notificaciones",
+    "sound": "Efectos de sonido",
+    "vibration": "Vibración",
+    "appearance": "🎨 Apariencia",
+    "darkMode": "Modo oscuro",
+    "about": "ℹ️ Acerca de",
+    "help": "Ayuda y soporte",
+    "terms": "Términos y condiciones",
+    "privacy": "Política de privacidad",
+    "version": "Versión",
+    "account": "👤 Cuenta",
+    "logout": "Cerrar sesión",
+    "logoutConfirm": "¿Estás seguro de que deseas cerrar sesión?",
+    "logoutSuccess": "Sesión cerrada",
+    "logoutSuccessMessage": "Has cerrado sesión correctamente",
+    "deleteAccount": "Eliminar cuenta",
+    "deleteConfirm": "¿Estás seguro? Esta acción no se puede deshacer.",
+    "accountDeleted": "Cuenta eliminada",
+    "accountDeletedMessage": "Tu cuenta ha sido eliminada"
+  },
+  "categories": {
+    "Ingenieria": "Ingeniería",
+    "Medicina": "Medicina",
+    "Historia": "Historia",
+    "Ciencia": "Ciencia",
+    "Arte": "Arte",
+    "Deportes": "Deportes"
+  }
+}

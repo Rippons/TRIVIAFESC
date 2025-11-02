@@ -1,8 +1,12 @@
+// app/_layout.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
+import { LanguageProvider, useLanguage } from '../contexts/LanguageContext';
 
-export default function Layout() {
+function TabsLayout() {
+  const { t } = useLanguage();
+
   return (
     <Tabs
       screenOptions={{
@@ -34,7 +38,7 @@ export default function Layout() {
       <Tabs.Screen
         name="leaderboard"
         options={{
-          title: 'Puntuaciones',
+          title: t('tabs.leaderboard'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trophy" size={size} color={color} />
           ),
@@ -44,7 +48,7 @@ export default function Layout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Inicio',
+          title: t('tabs.home'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -54,29 +58,37 @@ export default function Layout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Perfil',
+          title: t('tabs.profile'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
         }}
       />
 
-      {}
+      {/* Pantallas sin tabs (ocultas de la barra de navegación) */}
       <Tabs.Screen
         name="game"
         options={{
-          href: null, 
-          title: 'Juego',
+          href: null,
+          title: t('game.title'),
         }}
       />
 
       <Tabs.Screen
         name="gameover"
         options={{
-          href: null, 
+          href: null,
           title: 'Game Over',
         }}
       />
     </Tabs>
+  );
+}
+
+export default function Layout() {
+  return (
+    <LanguageProvider>
+      <TabsLayout />
+    </LanguageProvider>
   );
 }

@@ -1,0 +1,115 @@
+{
+  "common": {
+    "start": "Start",
+    "restart": "Restart",
+    "cancel": "Cancel",
+    "ok": "OK",
+    "save": "Save",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "tabs": {
+    "leaderboard": "Leaderboard",
+    "home": "Home",
+    "profile": "Profile"
+  },
+  "home": {
+    "title": "FESC Trivia",
+    "subtitle": "Spin the wheel and answer questions by category",
+    "startButton": "Start Game",
+    "footer": "Lives: 3 • Good luck!"
+  },
+  "game": {
+    "title": "Game",
+    "lives": "Lives",
+    "score": "Score",
+    "category": "Category",
+    "loading": "Loading question...",
+    "spinWheel": "Spin the wheel to choose a category",
+    "noMoreQuestions": "No more questions",
+    "noMoreQuestionsMessage": "That category has no more questions. Spin again.",
+    "correctFeedback": "Correct! +10 points",
+    "incorrectFeedback": "Incorrect. The answer was:",
+    "questionsAnswered": "Questions answered"
+  },
+  "wheel": {
+    "title": "🎡 Spin the wheel to choose category",
+    "spin": "🎡 Spin Wheel",
+    "spinning": "🌀 Spinning...",
+    "result": "🎉 Result!",
+    "availableCategories": "Available categories:"
+  },
+  "gameover": {
+    "title": "Game Over!",
+    "finalScore": "Final score",
+    "restart": "Restart"
+  },
+  "leaderboard": {
+    "title": "🏆 Top Scores",
+    "subtitle": "Top FESC Trivia players",
+    "empty": "📊 No scores yet",
+    "emptySubtitle": "Be the first to play!",
+    "points": "pts"
+  },
+  "profile": {
+    "title": "Profile",
+    "studentName": "FESC Student",
+    "personalInfo": "📚 Personal Information",
+    "email": "Email",
+    "career": "Career",
+    "semester": "Semester",
+    "statistics": "📊 Statistics",
+    "gamesPlayed": "Games Played",
+    "bestScore": "Best Score",
+    "totalPoints": "Total Points",
+    "average": "Average",
+    "accuracy": "Answer Accuracy",
+    "correctAnswers": "correct out of",
+    "questions": "questions",
+    "achievements": "🏅 Achievements",
+    "firstVictory": "First Victory",
+    "streak5": "5 Streak",
+    "perfection": "Perfection",
+    "speedster": "Speedster",
+    "profileUpdated": "Profile updated",
+    "profileUpdatedMessage": "Your data has been saved!"
+  },
+  "settings": {
+    "title": "⚙️ Settings",
+    "language": "🌐 Language",
+    "spanish": "🇪🇸 Español",
+    "english": "🇺🇸 English",
+    "portuguese": "🇧🇷 Português",
+    "languageChanged": "Language changed",
+    "languageChangedMessage": "Language has been changed to",
+    "notifications": "🔔 Notifications & Sound",
+    "notificationsToggle": "Notifications",
+    "sound": "Sound effects",
+    "vibration": "Vibration",
+    "appearance": "🎨 Appearance",
+    "darkMode": "Dark mode",
+    "about": "ℹ️ About",
+    "help": "Help & support",
+    "terms": "Terms & conditions",
+    "privacy": "Privacy policy",
+    "version": "Version",
+    "account": "👤 Account",
+    "logout": "Log out",
+    "logoutConfirm": "Are you sure you want to log out?",
+    "logoutSuccess": "Logged out",
+    "logoutSuccessMessage": "You have successfully logged out",
+    "deleteAccount": "Delete account",
+    "deleteConfirm": "Are you sure? This action cannot be undone.",
+    "accountDeleted": "Account deleted",
+    "accountDeletedMessage": "Your account has been deleted"
+  },
+  "categories": {
+    "Ingenieria": "Engineering",
+    "Medicina": "Medicine",
+    "Historia": "History",
+    "Ciencia": "Science",
+    "Arte": "Art",
+    "Deportes": "Sports"
+  }
+}

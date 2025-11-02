@@ -1,6 +1,7 @@
 // app/game.tsx
 import CategoryWheel from '@/components/CategoryWheel';
 import QuestionCard from '@/components/QuestionCard';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { QUESTIONS, Question } from '@/src/data/questions';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -8,6 +9,7 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function Game() {
   const router = useRouter();
+  const { t } = useLanguage();
 
   // Al montar el componente, verifica las categorías cargadas
   const categories = useMemo(() => {
@@ -26,6 +28,13 @@ export default function Game() {
     message: string;
   }>({ type: null, message: '' });
 
+  // Función para traducir nombres de categorías
+  const getTranslatedCategory = useCallback((category: string) => {
+    const categoryKey = `categories.${category}`;
+    const translated = t(categoryKey);
+    return translated !== categoryKey ? translated : category;
+  }, [t]);
+
   // Selección de pregunta de una categoría
   const selectQuestionFromCategory = useCallback(
     (category: string) => {
@@ -40,9 +49,9 @@ export default function Game() {
       if (available.length === 0) {
         console.warn('⚠️ Sin más preguntas en esta categoría.');
         Alert.alert(
-          'Sin más preguntas', 
-          'Esa categoría no tiene más preguntas. Gira de nuevo.',
-          [{ text: 'OK', onPress: () => {
+          t('game.noMoreQuestions'), 
+          t('game.noMoreQuestionsMessage'),
+          [{ text: t('common.ok'), onPress: () => {
             setCurrentCategory(null);
             setCurrentQuestion(null);
           }}]
@@ -56,7 +65,7 @@ export default function Game() {
       setCurrentQuestion(q);
       // NO agregamos al usedIds aquí, lo hacemos solo cuando responda correctamente
     },
-    [usedIds]
+    [usedIds, t]
   );
 
   // Si las vidas llegan a 0 → redirigir a Game Over
@@ -109,7 +118,7 @@ export default function Game() {
       // Mostrar feedback positivo
       setShowFeedback({
         type: 'correct',
-        message: '¡Correcto! +10 puntos'
+        message: t('game.correctFeedback')
       });
 
       const totalQuestions = Object.values(QUESTIONS).flat().length;
@@ -137,7 +146,7 @@ export default function Game() {
       // Mostrar feedback negativo con la respuesta correcta
       setShowFeedback({
         type: 'incorrect',
-        message: `Incorrecto. La respuesta era: ${currentQuestion.answer}`
+        message: `${t('game.incorrectFeedback')} ${currentQuestion.answer}`
       });
       
       setLives((l) => l - 1);
@@ -156,14 +165,12 @@ export default function Game() {
     }
   };
 
-
-
   return (
     <View style={styles.container}>
       {/* Stats en la parte superior */}
       <View style={styles.statsBar}>
-        <Text style={styles.statsText}>❤️ Vidas: {lives}</Text>
-        <Text style={styles.statsText}>🏆 Puntaje: {score}</Text>
+        <Text style={styles.statsText}>❤️ {t('game.lives')}: {lives}</Text>
+        <Text style={styles.statsText}>🏆 {t('game.score')}: {score}</Text>
       </View>
 
       {/* Contenido scrolleable */}
@@ -191,7 +198,9 @@ export default function Game() {
         {currentCategory && !showFeedback.type && (
           <View style={styles.categoryBox}>
             <Text style={styles.categoryIcon}>🎯</Text>
-            <Text style={styles.categoryText}>Categoría: {currentCategory}</Text>
+            <Text style={styles.categoryText}>
+              {t('game.category')}: {getTranslatedCategory(currentCategory)}
+            </Text>
           </View>
         )}
 
@@ -204,7 +213,7 @@ export default function Game() {
         ) : !showFeedback.type ? (
           <View style={styles.center}>
             <Text style={styles.centerText}>
-              {currentCategory ? 'Cargando pregunta...' : 'Gira la ruleta para elegir una categoría'}
+              {currentCategory ? t('game.loading') : t('game.spinWheel')}
             </Text>
           </View>
         ) : null}
@@ -212,7 +221,7 @@ export default function Game() {
         {/* Progreso del juego */}
         <View style={styles.progressContainer}>
           <Text style={styles.progressText}>
-            Preguntas respondidas: {usedIds.size} / {Object.values(QUESTIONS).flat().length}
+            {t('game.questionsAnswered')}: {usedIds.size} / {Object.values(QUESTIONS).flat().length}
           </Text>
         </View>
       </ScrollView>

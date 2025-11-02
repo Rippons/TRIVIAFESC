@@ -1,3 +1,5 @@
+// components/CategoryWheel.tsx
+import { useLanguage } from '@/contexts/LanguageContext';
 import React, { useRef, useState } from 'react';
 import {
   Animated,
@@ -19,6 +21,7 @@ const WHEEL_SIZE = Math.min(width - 40, 300);
 const RADIUS = WHEEL_SIZE / 2;
 
 export default function CategoryWheel({ categories, onSelect }: Props) {
+  const { t } = useLanguage();
   console.log('📋 Categorías recibidas en Wheel:', categories);
 
   const [spinning, setSpinning] = useState(false);
@@ -59,7 +62,6 @@ export default function CategoryWheel({ categories, onSelect }: Props) {
     console.log('📐 Posición final:', finalPosition);
     console.log('🔧 Ángulo ajustado:', adjustedAngle);
     console.log('🔢 Índice seleccionado:', selectedIndex);
-    console.log('✅ Categoría elegida:', chosen);
     console.log('✅ Categoría elegida:', chosen);
 
     Animated.timing(spinValue, {
@@ -106,6 +108,14 @@ export default function CategoryWheel({ categories, onSelect }: Props) {
     return { x, y, angle: ((angle * (180 / Math.PI)) + 90) };
   };
 
+  // Traducir nombres de categorías
+  const getTranslatedCategory = (category: string) => {
+    const categoryKey = `categories.${category}`;
+    const translated = t(categoryKey);
+    // Si no hay traducción, devolver el original
+    return translated !== categoryKey ? translated : category;
+  };
+
   const spin360 = spinValue.interpolate({
     inputRange: [0, 36000], // Rango más amplio para múltiples rotaciones
     outputRange: ['0deg', '36000deg'],
@@ -113,7 +123,7 @@ export default function CategoryWheel({ categories, onSelect }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🎡 Gira la ruleta para elegir categoría</Text>
+      <Text style={styles.title}>{t('wheel.title')}</Text>
 
       <View style={styles.wheelContainer}>
         {/* Flecha indicadora */}
@@ -143,6 +153,7 @@ export default function CategoryWheel({ categories, onSelect }: Props) {
             {categories.map((category, index) => {
               const textPos = getTextPosition(index);
               const color = colors[index % colors.length];
+              const translatedCategory = getTranslatedCategory(category);
               
               return (
                 <G key={index}>
@@ -162,7 +173,7 @@ export default function CategoryWheel({ categories, onSelect }: Props) {
                     alignmentBaseline="middle"
                     transform={`rotate(${textPos.angle > 90 && textPos.angle < 270 ? textPos.angle + 180 : textPos.angle}, ${textPos.x}, ${textPos.y})`}
                   >
-                    {category.length > 8 ? category.substring(0, 8) + '...' : category}
+                    {translatedCategory.length > 8 ? translatedCategory.substring(0, 8) + '...' : translatedCategory}
                   </SvgText>
                 </G>
               );
@@ -188,21 +199,21 @@ export default function CategoryWheel({ categories, onSelect }: Props) {
         disabled={spinning}
       >
         <Text style={styles.buttonText}>
-          {spinning ? '🌀 Girando...' : '🎡 Girar Ruleta'}
+          {spinning ? t('wheel.spinning') : t('wheel.spin')}
         </Text>
       </TouchableOpacity>
 
       {/* Resultado */}
       {selected && !spinning && (
         <View style={styles.resultContainer}>
-          <Text style={styles.resultTitle}>🎉 ¡Resultado!</Text>
-          <Text style={styles.selected}>{selected}</Text>
+          <Text style={styles.resultTitle}>{t('wheel.result')}</Text>
+          <Text style={styles.selected}>{getTranslatedCategory(selected)}</Text>
         </View>
       )}
 
       {/* Lista de categorías disponibles */}
       <View style={styles.categoriesContainer}>
-        <Text style={styles.categoriesTitle}>Categorías disponibles:</Text>
+        <Text style={styles.categoriesTitle}>{t('wheel.availableCategories')}</Text>
         <View style={styles.categoriesList}>
           {categories.map((category, index) => (
             <View 
@@ -212,7 +223,7 @@ export default function CategoryWheel({ categories, onSelect }: Props) {
                 { backgroundColor: colors[index % colors.length] }
               ]}
             >
-              <Text style={styles.categoryText}>{category}</Text>
+              <Text style={styles.categoryText}>{getTranslatedCategory(category)}</Text>
             </View>
           ))}
         </View>
@@ -226,14 +237,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     flex: 1,
-    justifyContent: 'flex-start', // Asegura que el contenido arranque desde arriba
+    justifyContent: 'flex-start',
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 20,
-    textAlign: 'center',     // Centrar texto
-    alignSelf: 'center',     // Centrar dentro del contenedor
+    textAlign: 'center',
+    alignSelf: 'center',
     color: '#333',
   },
   wheelContainer: {
@@ -244,12 +255,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   arrow: {
-  position: 'absolute',
-  top: -15,
-  left: WHEEL_SIZE / 2 - 10,
-  zIndex: 1,          // Menor para que no tape el botón
-  pointerEvents: 'none', // Evita bloquear toques
-},
+    position: 'absolute',
+    top: -15,
+    left: WHEEL_SIZE / 2 - 10,
+    zIndex: 1,
+    pointerEvents: 'none',
+  },
   arrowText: {
     fontSize: 20,
     color: '#FF6B6B',
@@ -269,19 +280,18 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   button: {
-  backgroundColor: '#007AFF',
-  paddingVertical: 15,
-  paddingHorizontal: 30,
-  borderRadius: 25,
-  marginBottom: 20,
-  shadowColor: '#007AFF',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.3,
-  shadowRadius: 4,
-  elevation: 5,
-  zIndex: 5,          // Asegura que esté encima
-},
-
+    backgroundColor: '#007AFF',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    marginBottom: 20,
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 5,
+  },
   buttonDisabled: {
     backgroundColor: '#ccc',
     shadowOpacity: 0.1,
@@ -311,28 +321,26 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   categoriesContainer: {
-  marginTop: 30,        
-  width: '100%',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingHorizontal: 10,
-},
-
-categoriesTitle: {
-  fontSize: 16,
-  fontWeight: '600',
-  marginBottom: 12,     
-  color: '#555',
-  textAlign: 'center',
-  width: '100%',
-},
-
-categoriesList: {
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-  justifyContent: 'center',
-  marginBottom: 20,     
-},
+    marginTop: 30,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  categoriesTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#555',
+    textAlign: 'center',
+    width: '100%',
+  },
+  categoriesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
   categoryChip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
