@@ -1,3 +1,5 @@
+// app/leaderboard.tsx
+import { useLanguage } from '@/contexts/LanguageContext';
 import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -9,6 +11,7 @@ interface LeaderboardEntry {
 }
 
 export default function Leaderboard() {
+  const { t, language } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([
     { id: '1', name: 'María García', score: 150, date: '2025-10-08' },
@@ -38,11 +41,22 @@ export default function Leaderboard() {
     }
   };
 
+  // Formatear fecha según el idioma
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const locales = {
+      es: 'es-ES',
+      en: 'en-US',
+      pt: 'pt-BR'
+    };
+    return date.toLocaleDateString(locales[language as keyof typeof locales] || 'es-ES');
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🏆 Mejores Puntuaciones</Text>
-        <Text style={styles.headerSubtitle}>Top jugadores de Trivia FESC</Text>
+        <Text style={styles.headerTitle}>{t('leaderboard.title')}</Text>
+        <Text style={styles.headerSubtitle}>{t('leaderboard.subtitle')}</Text>
       </View>
 
       <ScrollView
@@ -71,20 +85,20 @@ export default function Leaderboard() {
 
             <View style={styles.infoContainer}>
               <Text style={styles.name}>{entry.name}</Text>
-              <Text style={styles.date}>{new Date(entry.date).toLocaleDateString('es-ES')}</Text>
+              <Text style={styles.date}>{formatDate(entry.date)}</Text>
             </View>
 
             <View style={styles.scoreContainer}>
               <Text style={styles.score}>{entry.score}</Text>
-              <Text style={styles.scoreLabel}>pts</Text>
+              <Text style={styles.scoreLabel}>{t('leaderboard.points')}</Text>
             </View>
           </View>
         ))}
 
         {leaderboard.length === 0 && (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>📊 No hay puntuaciones aún</Text>
-            <Text style={styles.emptySubtext}>¡Sé el primero en jugar!</Text>
+            <Text style={styles.emptyText}>{t('leaderboard.empty')}</Text>
+            <Text style={styles.emptySubtext}>{t('leaderboard.emptySubtitle')}</Text>
           </View>
         )}
       </ScrollView>
