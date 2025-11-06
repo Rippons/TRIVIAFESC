@@ -1,23 +1,33 @@
 // app/index.tsx
+import GameModeSelector from '@/components/GameModeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Home() {
   const router = useRouter();
   const { t } = useLanguage();
+  const [showModeSelector, setShowModeSelector] = useState(false);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{t('home.title')}</Text>
       <Text style={styles.subtitle}>{t('home.subtitle')}</Text>
 
-      <TouchableOpacity style={styles.button} onPress={() => router.push('/game')}>
+      <TouchableOpacity 
+        style={styles.button} 
+        onPress={() => setShowModeSelector(true)}
+      >
         <Text style={styles.buttonText}>{t('home.startButton')}</Text>
       </TouchableOpacity>
 
       <Text style={styles.footer}>{t('home.footer')}</Text>
+
+      <GameModeSelector 
+        visible={showModeSelector}
+        onClose={() => setShowModeSelector(false)}
+      />
     </View>
   );
 }

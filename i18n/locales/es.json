@@ -20,6 +20,26 @@
     "startButton": "Iniciar Juego",
     "footer": "Vidas: 3 • ¡Buena suerte!"
   },
+  "gameMode": {
+    "title": "Selecciona el Modo de Juego",
+    "singlePlayer": "Jugar Solo",
+    "singlePlayerDesc": "Juega tú solo contra el tiempo",
+    "multiplayer": "Multijugador",
+    "multiplayerDesc": "Juega con un amigo vía Bluetooth",
+    "host": "Crear Partida",
+    "hostDesc": "Espera a que un jugador se conecte",
+    "join": "Unirse a Partida",
+    "joinDesc": "Buscar partidas disponibles",
+    "waiting": "Esperando jugador...",
+    "searching": "Buscando partidas...",
+    "connected": "Conectado con",
+    "connectionFailed": "Error de conexión",
+    "disconnect": "Desconectar",
+    "startGame": "Iniciar Juego",
+    "player": "Jugador",
+    "yourTurn": "Tu turno",
+    "opponentTurn": "Turno del oponente"
+  },
   "game": {
     "title": "Juego",
     "lives": "Vidas",
@@ -43,7 +63,9 @@
   "gameover": {
     "title": "¡Juego terminado!",
     "finalScore": "Puntaje final",
-    "restart": "Reiniciar"
+    "restart": "Reiniciar",
+    "winner": "¡Ganador!",
+    "draw": "¡Empate!"
   },
   "leaderboard": {
     "title": "🏆 Mejores Puntuaciones",
