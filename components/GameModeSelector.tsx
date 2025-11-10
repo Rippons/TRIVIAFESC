@@ -30,6 +30,19 @@ export default function GameModeSelector({ visible, onClose }: Props) {
   const [isBusy, setIsBusy] = useState(false);
   const [devices, setDevices] = useState<DeviceItem[]>([]);
 
+  // components/GameModeSelector.tsx
+  useEffect(() => {
+    const cb = (msg: any) => {
+      if (msg?.type === 'GAME_START') {
+        onClose();
+        router.push({ pathname: '/game', params: { mode: 'multi' } });
+      }
+    };
+    BluetoothService.onMessageReceived(cb);
+    return () => BluetoothService.onMessageReceived(() => { }); // limpia callback
+  }, [router, onClose]);
+
+
   useEffect(() => {
     // Limpia al cerrar
     if (!visible) {
@@ -77,19 +90,19 @@ export default function GameModeSelector({ visible, onClose }: Props) {
     }
   };
 
+  // NO navegues aquí directamente; espera GAME_START
   const connectTo = async (dev: DeviceItem) => {
     setIsBusy(true);
     try {
       await BluetoothService.connectToDevice(dev.id);
-      // Opcional: navega al juego cuando conecte
-      onClose();
-      router.push({ pathname: '/game', params: { mode: 'multi' } });
+      // onClose(); router.push(...)  ❌  quítalo
     } catch (e: any) {
       Alert.alert('No se pudo conectar', e?.message ?? String(e));
     } finally {
       setIsBusy(false);
     }
   };
+
 
   const handleBack = () => {
     if (multiplayerStep === 'select') {

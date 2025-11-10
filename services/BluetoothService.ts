@@ -118,13 +118,18 @@ class BluetoothService {
   async connectToDevice(deviceId: string): Promise<void> {
     if (this.transport === 'bluetooth') {
       console.log('🔗 Conectando a dispositivo:', deviceId);
-      const device = await RNBluetoothClassic.connectToDevice(deviceId, {
-        delimiter: '\n',
-      });
+      const device = await RNBluetoothClassic.connectToDevice(deviceId, { delimiter: '\n' });
       this.connectedDevice = device;
       this.isHost = false;
       this.listenToDevice(device);
       console.log('✅ Conectado a:', device.name);
+
+      // 🚀 Anuncia unión al host (handshake)
+      if (this.connectedDevice) {
+        await this.connectedDevice.write(
+          JSON.stringify({ type: 'PLAYER_JOINED', playerName: device.name ?? 'Jugador' }) + '\n'
+        );
+      }
       return;
     }
 
@@ -208,10 +213,23 @@ class BluetoothService {
     this.messageCallback = callback;
   }
 
+  // BluetoothService.ts
   private onMessage(message: GameMessage): void {
     console.log('📥 Mensaje recibido:', message);
+
+    // 🧠 Lógica de orquestación básica
+    if (this.isHost && message?.type === 'PLAYER_JOINED' && this.connectedDevice) {
+      // Opcional: también podrías avisar el nombre del host al cliente aquí
+      const start: GameMessage = { type: 'GAME_START' };
+      // Enviar al peer por BT
+      this.connectedDevice.write(JSON.stringify(start) + '\n').catch(() => { });
+      // Y notificar al propio host (para que navegue igual que el cliente)
+      this.messageCallback?.(start);
+    }
+
     if (this.messageCallback) this.messageCallback(message);
   }
+
 
   // ====== DISCONNECT ======
   async disconnect(): Promise<void> {
@@ -231,7 +249,7 @@ class BluetoothService {
     if (this.ws) {
       try {
         this.ws.close();
-      } catch {}
+      } catch { }
       this.ws = null;
     }
 
