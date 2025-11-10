@@ -142,10 +142,12 @@ class BluetoothService {
 
   // ====== LISTEN ======
   private listenToDevice(device: BTDevice) {
+    if (!device?.onDataReceived) return;
     const sub = device.onDataReceived((event: any) => {
       try {
         const raw = event?.message ?? event?.data;
-        const message = JSON.parse(raw) as GameMessage;
+        if (!raw) return;
+        const message = JSON.parse(String(raw)) as GameMessage;
         this.onMessage(message);
       } catch (err) {
         console.error('❌ Error interpretando mensaje BT:', err);
@@ -153,6 +155,7 @@ class BluetoothService {
     });
     this.subscriptions.push(sub);
   }
+
 
   private ensureWS(): Promise<void> {
     if (this.ws && (this.ws.readyState === 1 || this.ws.readyState === 0)) {
@@ -258,8 +261,10 @@ class BluetoothService {
   }
 
   isConnected(): boolean {
-    return !!this.connectedDevice || !!this.ws;
-  }
+  const wsReady = this.ws && this.ws.readyState === 1;
+  return !!this.connectedDevice || !!wsReady;
+}
+
 
   isHostDevice(): boolean {
     return this.isHost;
