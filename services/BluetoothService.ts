@@ -1,9 +1,8 @@
 // services/BluetoothService.ts
-
 import { PermissionsAndroid, Platform } from 'react-native';
-import RNBluetoothClassic, {
-    BluetoothDevice as BTDevice,
-    BluetoothEventSubscription,
+import RNBluetoothClassicLib, {
+  BluetoothDevice as BTDevice,
+  BluetoothEventSubscription,
 } from 'react-native-bluetooth-classic';
 
 export type GameMessage =
@@ -20,22 +19,44 @@ export interface BluetoothDevice {
   address?: string;
 }
 
+type Transport = 'bluetooth' | 'websocket';
+
+const WS_URL = 'ws://localhost:8787'; // ⬅️ cámbialo por tu IP/LAN si hace falta
+
+// El módulo puede ser undefined en web/iOS/Expo Go
+const RNBluetoothClassic: any = RNBluetoothClassicLib;
+
 class BluetoothService {
+  // Estado común
   private connectedDevice: BTDevice | null = null;
-  private isHost: boolean = false;
+  private isHost = false;
   private messageCallback: ((message: GameMessage) => void) | null = null;
   private subscriptions: BluetoothEventSubscription[] = [];
 
+  // WebSocket fallback
+  private ws: WebSocket | null = null;
+
+  // Detección de transporte preferente
+  private get transport(): Transport {
+    const bluetoothSupported =
+      Platform.OS === 'android' &&
+      !!RNBluetoothClassic &&
+      typeof RNBluetoothClassic.isBluetoothAvailable === 'function';
+    return bluetoothSupported ? 'bluetooth' : 'websocket';
+  }
+
+  // ===== Permisos (Android) =====
   async requestBluetoothPermissions(): Promise<boolean> {
-    if (Platform.OS === 'android') {
+    if (Platform.OS === 'android' && this.transport === 'bluetooth') {
       try {
         const granted = await PermissionsAndroid.requestMultiple([
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
           PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         ]);
-
-        return Object.values(granted).every(v => v === PermissionsAndroid.RESULTS.GRANTED);
+        return Object.values(granted).every(
+          (v) => v === PermissionsAndroid.RESULTS.GRANTED,
+        );
       } catch (err) {
         console.warn('Error requesting permissions:', err);
         return false;
@@ -44,75 +65,145 @@ class BluetoothService {
     return true;
   }
 
-  /**
-   * HOST inicia el servidor
-   */
+  // ====== HOST / SERVER ======
   async startServer(): Promise<void> {
-    const hasPermission = await this.requestBluetoothPermissions();
-    if (!hasPermission) throw new Error('Bluetooth permissions not granted');
+    if (this.transport === 'bluetooth') {
+      const hasPermission = await this.requestBluetoothPermissions();
+      if (!hasPermission) throw new Error('Bluetooth permissions not granted');
 
+      this.isHost = true;
+      console.log('🟢 Iniciando servidor Bluetooth...');
+      const available = await RNBluetoothClassic.isBluetoothAvailable();
+      if (!available) throw new Error('Bluetooth not available');
+
+      // En esta lib accept() recibe opciones
+      const serverDevice = await RNBluetoothClassic.accept({ delimiter: '\n' });
+      this.connectedDevice = serverDevice;
+      this.onMessage({
+        type: 'PLAYER_JOINED',
+        playerName: serverDevice.name ?? 'Jugador',
+      });
+      this.listenToDevice(serverDevice);
+      return;
+    }
+
+    // --- WebSocket fallback ---
     this.isHost = true;
-    console.log('🟢 Iniciando servidor Bluetooth...');
-
-    const available = await RNBluetoothClassic.isBluetoothAvailable();
-    if (!available) throw new Error('Bluetooth not available');
-
-    // 👇 accept() requiere un objeto en esta versión
-    const serverDevice = await RNBluetoothClassic.accept({ delimiter: '\n' });
-    this.connectedDevice = serverDevice;
-
-    this.onMessage({ type: 'PLAYER_JOINED', playerName: serverDevice.name ?? 'Jugador' });
-
-    this.listenToDevice(serverDevice);
+    console.log('🟢 Iniciando sala WS en', WS_URL);
+    await this.ensureWS();
+    // Marca de host
+    this.sendRawWS({ _sys: 'hello', role: 'host' });
+    this.onMessage({ type: 'PLAYER_JOINED', playerName: 'Invitado' });
   }
 
+  // ====== DISCOVERY / SEARCH ======
   async searchDevices(): Promise<BluetoothDevice[]> {
-    const hasPermission = await this.requestBluetoothPermissions();
-    if (!hasPermission) throw new Error('Bluetooth permissions not granted');
+    if (this.transport === 'bluetooth') {
+      const hasPermission = await this.requestBluetoothPermissions();
+      if (!hasPermission) throw new Error('Bluetooth permissions not granted');
+      console.log('🔍 Buscando dispositivos emparejados...');
+      const devices = await RNBluetoothClassic.getBondedDevices();
+      return devices.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        address: d.address,
+      }));
+    }
 
-    console.log('🔍 Buscando dispositivos Bluetooth emparejados...');
-    const devices = await RNBluetoothClassic.getBondedDevices();
-
-    return devices.map(d => ({
-      id: d.id,
-      name: d.name,
-      address: d.address,
-    }));
+    // --- WebSocket fallback: mostramos una “sala” fija ---
+    return [{ id: 'ws-room', name: 'Sala LAN (WebSocket)' }];
   }
 
+  // ====== CLIENT / JOIN ======
   async connectToDevice(deviceId: string): Promise<void> {
-    console.log('🔗 Conectando a dispositivo:', deviceId);
+    if (this.transport === 'bluetooth') {
+      console.log('🔗 Conectando a dispositivo:', deviceId);
+      const device = await RNBluetoothClassic.connectToDevice(deviceId, {
+        delimiter: '\n',
+      });
+      this.connectedDevice = device;
+      this.isHost = false;
+      this.listenToDevice(device);
+      console.log('✅ Conectado a:', device.name);
+      return;
+    }
 
-    const device = await RNBluetoothClassic.connectToDevice(deviceId, { delimiter: '\n' });
-    this.connectedDevice = device;
+    // --- WebSocket fallback ---
+    console.log('🔗 Uniendo a sala WS:', WS_URL);
     this.isHost = false;
-
-    this.listenToDevice(device);
-    console.log('✅ Conectado a:', device.name);
+    await this.ensureWS();
+    this.sendRawWS({ _sys: 'hello', role: 'guest' });
   }
 
+  // ====== LISTEN ======
   private listenToDevice(device: BTDevice) {
-    const sub = device.onDataReceived(event => {
+    const sub = device.onDataReceived((event: any) => {
       try {
-        // Para esta versión el campo es "message"
-        const raw = (event as any).message ?? (event as any).data;
+        const raw = event?.message ?? event?.data;
         const message = JSON.parse(raw) as GameMessage;
         this.onMessage(message);
       } catch (err) {
-        console.error('❌ Error interpretando mensaje:', err);
+        console.error('❌ Error interpretando mensaje BT:', err);
       }
     });
-
     this.subscriptions.push(sub);
   }
 
-  async sendMessage(message: GameMessage): Promise<void> {
-    if (!this.connectedDevice) throw new Error('Not connected to any device');
-
-    console.log('📤 Enviando mensaje:', message);
-    await this.connectedDevice.write(JSON.stringify(message) + '\n');
+  private ensureWS(): Promise<void> {
+    if (this.ws && (this.ws.readyState === 1 || this.ws.readyState === 0)) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      try {
+        this.ws = new WebSocket(WS_URL);
+        this.ws.onopen = () => {
+          console.log('🔌 WS abierta');
+          resolve();
+        };
+        this.ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(String(e.data));
+            // Ignora mensajes de sistema
+            if (msg && !msg._sys) this.onMessage(msg as GameMessage);
+          } catch (err) {
+            console.warn('WS parse err', err);
+          }
+        };
+        this.ws.onerror = (e) => {
+          console.error('WS error', e);
+        };
+        this.ws.onclose = () => {
+          console.log('WS cerrada');
+        };
+      } catch (err) {
+        reject(err);
+      }
+    });
   }
 
+  private sendRawWS(payload: unknown) {
+    if (!this.ws || this.ws.readyState !== 1) {
+      console.warn('WS no está lista todavía');
+      return;
+    }
+    this.ws.send(JSON.stringify(payload));
+  }
+
+  // ====== SEND ======
+  async sendMessage(message: GameMessage): Promise<void> {
+    // Bluetooth
+    if (this.transport === 'bluetooth') {
+      if (!this.connectedDevice) throw new Error('Not connected to any device');
+      console.log('📤 (BT) Enviando mensaje:', message);
+      await this.connectedDevice.write(JSON.stringify(message) + '\n');
+      return;
+    }
+    // WebSocket
+    console.log('📤 (WS) Enviando mensaje:', message);
+    this.sendRawWS(message);
+  }
+
+  // ====== EVENTING API ======
   onMessageReceived(callback: (message: GameMessage) => void): void {
     this.messageCallback = callback;
   }
@@ -122,27 +213,34 @@ class BluetoothService {
     if (this.messageCallback) this.messageCallback(message);
   }
 
+  // ====== DISCONNECT ======
   async disconnect(): Promise<void> {
     console.log('🔌 Desconectando...');
-
-    this.subscriptions.forEach(s => s.remove());
+    this.subscriptions.forEach((s) => s.remove?.());
     this.subscriptions = [];
 
     if (this.connectedDevice) {
       try {
         await this.connectedDevice.disconnect();
       } catch {
-        console.warn('⚠️ Error al desconectar desde el dispositivo');
+        console.warn('⚠️ Error al desconectar BT');
       }
+      this.connectedDevice = null;
     }
 
-    this.connectedDevice = null;
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch {}
+      this.ws = null;
+    }
+
     this.isHost = false;
     this.messageCallback = null;
   }
 
   isConnected(): boolean {
-    return this.connectedDevice != null;
+    return !!this.connectedDevice || !!this.ws;
   }
 
   isHostDevice(): boolean {
