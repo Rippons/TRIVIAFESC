@@ -60,13 +60,17 @@
     "result": "🎉 Resultado!",
     "availableCategories": "Categorias disponíveis:"
   },
-  "gameover": {
+    "gameover": {
     "title": "Fim de Jogo!",
+    "titleSingle": "Fim de Jogo!",
+    "titleMulti": "Fim de Jogo!",
     "finalScore": "Pontuação Final",
     "restart": "Reiniciar",
-    "winner": "Vencedor!",
-    "draw": "Empate!"
+    "winner": "Vencedor",
+    "draw": "Empate!",
+    "singleWinner": "Jogador"
   },
+
   "leaderboard": {
     "title": "🏆 Melhores Pontuações",
     "subtitle": "Top jogadores do Trivia FESC",

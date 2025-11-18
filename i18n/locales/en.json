@@ -60,13 +60,17 @@
     "result": "🎉 Result!",
     "availableCategories": "Available categories:"
   },
-  "gameover": {
+    "gameover": {
     "title": "Game Over!",
+    "titleSingle": "Game Over!",
+    "titleMulti": "Game Over!",
     "finalScore": "Final Score",
     "restart": "Restart",
-    "winner": "Winner!",
-    "draw": "Draw!"
+    "winner": "Winner",
+    "draw": "Draw!",
+    "singleWinner": "Player"
   },
+
   "leaderboard": {
     "title": "🏆 Top Scores",
     "subtitle": "Best Trivia FESC Players",

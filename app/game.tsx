@@ -1,22 +1,39 @@
 // app/game.tsx
 import CategoryWheel from '@/components/CategoryWheel';
+import Hearts from '@/components/Hearts';
 import QuestionCard from '@/components/QuestionCard';
+import TurnIndicator from '@/components/TurnIndicator';
 import { useLanguage } from '@/contexts/LanguageContext';
+import BluetoothService, { GameMessage } from '@/services/BluetoothService';
 import { QUESTIONS, Question } from '@/src/data/questions';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+type PlayerKey = 'p1' | 'p2';
+
+/* ─────────────────────────────
+   Componente raíz: decide modo
+   ───────────────────────────── */
 export default function Game() {
+  const params = useLocalSearchParams();
+  const mode = params.mode ?? 'single';
+
+  if (mode === 'multi') {
+    return <MultiGame />;
+  }
+
+  return <SingleGame />;
+}
+
+/* ─────────────────────────────
+   MODO SINGLE PLAYER
+   ───────────────────────────── */
+function SingleGame() {
   const router = useRouter();
   const { t } = useLanguage();
 
-  // Al montar el componente, verifica las categorías cargadas
-  const categories = useMemo(() => {
-    const keys = Object.keys(QUESTIONS);
-    console.log('📋 Categorías detectadas en Game:', keys);
-    return keys;
-  }, []);
+  const categories = useMemo(() => Object.keys(QUESTIONS), []);
 
   const [lives, setLives] = useState<number>(3);
   const [score, setScore] = useState<number>(0);
@@ -28,163 +45,137 @@ export default function Game() {
     message: string;
   }>({ type: null, message: '' });
 
-  // Función para traducir nombres de categorías
-  const getTranslatedCategory = useCallback((category: string) => {
-    const categoryKey = `categories.${category}`;
-    const translated = t(categoryKey);
-    return translated !== categoryKey ? translated : category;
-  }, [t]);
+  const getTranslatedCategory = useCallback(
+    (category: string) => {
+      const categoryKey = `categories.${category}`;
+      const translated = t(categoryKey);
+      return translated !== categoryKey ? translated : category;
+    },
+    [t]
+  );
 
-  // Selección de pregunta de una categoría
   const selectQuestionFromCategory = useCallback(
     (category: string) => {
-      console.log('🎡 Seleccionando pregunta para categoría:', category);
-
       const pool = QUESTIONS[category] ?? [];
-      console.log(`📊 Preguntas totales en ${category}:`, pool.length);
-
       const available = pool.filter((q) => !usedIds.has(q.id));
-      console.log('✅ Preguntas disponibles:', available.length);
 
       if (available.length === 0) {
-        console.warn('⚠️ Sin más preguntas en esta categoría.');
         Alert.alert(
-          t('game.noMoreQuestions'), 
+          t('game.noMoreQuestions'),
           t('game.noMoreQuestionsMessage'),
-          [{ text: t('common.ok'), onPress: () => {
-            setCurrentCategory(null);
-            setCurrentQuestion(null);
-          }}]
+          [
+            {
+              text: t('common.ok'),
+              onPress: () => {
+                setCurrentCategory(null);
+                setCurrentQuestion(null);
+              },
+            },
+          ]
         );
         return;
       }
 
       const q = available[Math.floor(Math.random() * available.length)];
-      console.log('🎯 Pregunta seleccionada:', q);
-
       setCurrentQuestion(q);
-      // NO agregamos al usedIds aquí, lo hacemos solo cuando responda correctamente
     },
     [usedIds, t]
   );
 
   // Si las vidas llegan a 0 → redirigir a Game Over
   useEffect(() => {
-    console.log('❤️ Vidas actuales:', lives);
     if (lives <= 0) {
-      console.warn('💀 Sin vidas, redirigiendo a Game Over con score:', score);
       router.replace({ pathname: '/gameover', params: { score } });
     }
   }, [lives, router, score]);
 
-  // Cada vez que se elige una categoría, cargar pregunta
+  // Cuando cambia la categoría, cargamos una pregunta
   useEffect(() => {
-    console.log('📌 currentCategory cambió a:', currentCategory);
     if (currentCategory) {
       selectQuestionFromCategory(currentCategory);
     }
   }, [currentCategory, selectQuestionFromCategory]);
 
-  // Cuando se selecciona una categoría desde la ruleta
   const handleSelectCategory = (cat: string) => {
-    console.log('▶️ handleSelectCategory llamado con:', cat);
     setCurrentCategory(cat);
-    setShowFeedback({ type: null, message: '' }); // Limpiar feedback anterior
+    setShowFeedback({ type: null, message: '' });
   };
 
-  // Cuando el usuario responde una pregunta
   const handleAnswer = (option: string) => {
-    console.log('📝 Respuesta seleccionada:', option);
-    if (!currentQuestion) {
-      console.warn('⚠️ No hay pregunta actual para validar.');
-      return;
-    }
+    if (!currentQuestion) return;
 
     const correct = option === currentQuestion.answer;
-    console.log('✅ ¿Respuesta correcta?', correct);
 
     if (correct) {
       const newScore = score + 10;
-      console.log('🏆 Nuevo puntaje:', newScore);
       setScore(newScore);
-      
-      // SOLO cuando es correcta, marcar como usada
+
       setUsedIds((prev) => {
         const updated = new Set(prev).add(currentQuestion.id);
-        console.log('🆔 IDs de preguntas correctas:', Array.from(updated));
         return updated;
       });
-      
-      // Mostrar feedback positivo
+
       setShowFeedback({
         type: 'correct',
-        message: t('game.correctFeedback')
+        message: t('game.correctFeedback'),
       });
 
       const totalQuestions = Object.values(QUESTIONS).flat().length;
-      console.log('🔢 Total de preguntas en el juego:', totalQuestions);
-      console.log('🔢 Preguntas correctas hasta ahora:', usedIds.size + 1);
 
       if (usedIds.size + 1 >= totalQuestions) {
-        console.log('🎉 Todas las preguntas respondidas, fin del juego.');
         setTimeout(() => {
           router.replace({ pathname: '/gameover', params: { score: newScore } });
         }, 2000);
         return;
       }
 
-      // Delay para mostrar el feedback antes de volver a la ruleta
       setTimeout(() => {
         setCurrentCategory(null);
         setCurrentQuestion(null);
         setShowFeedback({ type: null, message: '' });
       }, 2000);
-
     } else {
-      console.warn('❌ Respuesta incorrecta. Restando una vida.');
-      
-      // Mostrar feedback negativo con la respuesta correcta
       setShowFeedback({
         type: 'incorrect',
-        message: `${t('game.incorrectFeedback')} ${currentQuestion.answer}`
+        message: `${t('game.incorrectFeedback')} ${currentQuestion.answer}`,
       });
-      
+
       setLives((l) => l - 1);
 
-      // Delay para mostrar el feedback antes de continuar
       setTimeout(() => {
-        // Opción 1: Volver a la ruleta después de respuesta incorrecta
         setCurrentCategory(null);
         setCurrentQuestion(null);
         setShowFeedback({ type: null, message: '' });
-        
-        // Opción 2: Mantener la misma categoría y cargar nueva pregunta
-        // selectQuestionFromCategory(currentCategory);
-        // setShowFeedback({ type: null, message: '' });
       }, 3000);
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Stats en la parte superior */}
+      {/* Barra de stats para 1 jugador */}
       <View style={styles.statsBar}>
-        <Text style={styles.statsText}>❤️ {t('game.lives')}: {lives}</Text>
-        <Text style={styles.statsText}>🏆 {t('game.score')}: {score}</Text>
+        <View style={styles.playerBox}>
+          <Text style={styles.playerLabel}>Tú</Text>
+          <Hearts lives={lives} />
+          <Text style={styles.scoreText}>
+            🏆 {t('game.score')}: {score}
+          </Text>
+        </View>
       </View>
 
-      {/* Contenido scrolleable */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContent}
-        contentContainerStyle={styles.scrollContentContainer}
-        showsVerticalScrollIndicator={true}
+        contentContainerStyle={{ paddingBottom: 20 }}
       >
-        {/* Feedback de respuesta */}
         {showFeedback.type && (
-          <View style={[
-            styles.feedbackContainer,
-            showFeedback.type === 'correct' ? styles.feedbackCorrect : styles.feedbackIncorrect
-          ]}>
+          <View
+            style={[
+              styles.feedbackContainer,
+              showFeedback.type === 'correct'
+                ? styles.feedbackCorrect
+                : styles.feedbackIncorrect,
+            ]}
+          >
             <Text style={styles.feedbackText}>
               {showFeedback.type === 'correct' ? '🎉' : '😞'} {showFeedback.message}
             </Text>
@@ -205,8 +196,8 @@ export default function Game() {
         )}
 
         {currentQuestion && !showFeedback.type ? (
-          <QuestionCard 
-            item={currentQuestion} 
+          <QuestionCard
+            item={currentQuestion}
             onAnswer={handleAnswer}
             category={currentCategory || 'Ingenieria'}
           />
@@ -218,10 +209,10 @@ export default function Game() {
           </View>
         ) : null}
 
-        {/* Progreso del juego */}
         <View style={styles.progressContainer}>
           <Text style={styles.progressText}>
-            {t('game.questionsAnswered')}: {usedIds.size} / {Object.values(QUESTIONS).flat().length}
+            {t('game.questionsAnswered')}: {usedIds.size} /{' '}
+            {Object.values(QUESTIONS).flat().length}
           </Text>
         </View>
       </ScrollView>
@@ -229,33 +220,301 @@ export default function Game() {
   );
 }
 
+/* ─────────────────────────────
+   MODO MULTIPLAYER
+   ───────────────────────────── */
+function MultiGame() {
+  const router = useRouter();
+  const { t } = useLanguage();
+
+  const categories = useMemo(() => Object.keys(QUESTIONS), []);
+  const isHost = BluetoothService.isHostDevice();
+  const myPlayerNumber = isHost ? 1 : 2;
+
+  const [currentTurn, setCurrentTurn] = useState<number>(1);
+  const [lives, setLives] = useState<{ p1: number; p2: number }>({ p1: 3, p2: 3 });
+  const [score, setScore] = useState<{ p1: number; p2: number }>({ p1: 0, p2: 0 });
+  const [currentCategory, setCurrentCategory] = useState<string | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [showFeedback, setShowFeedback] = useState<{
+    type: 'correct' | 'incorrect' | null;
+    message: string;
+  }>({ type: null, message: '' });
+
+  const [showTurnAnim, setShowTurnAnim] = useState(false);
+
+  const pickQuestion = useCallback((category: string): Question => {
+    const pool = QUESTIONS[category];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }, []);
+
+  const hostSelectCategory = (category: string) => {
+    const q = pickQuestion(category);
+
+    BluetoothService.sendMessage({
+      type: 'CATEGORY_SELECTED',
+      category,
+    });
+
+    setCurrentCategory(category);
+    setCurrentQuestion(q);
+  };
+
+  const handleRemoteMessage = useCallback(
+    (msg: GameMessage) => {
+      switch (msg.type) {
+        case 'CATEGORY_SELECTED': {
+          const newQ = pickQuestion(msg.category);
+          setCurrentCategory(msg.category);
+          setCurrentQuestion(newQ);
+          break;
+        }
+
+        case 'ANSWER_SUBMITTED': {
+          const otherKey: PlayerKey = currentTurn === 1 ? 'p1' : 'p2';
+          const myKey: PlayerKey = currentTurn === 1 ? 'p2' : 'p1';
+          const correct = msg.isCorrect;
+
+          if (correct) {
+            setScore((s) => ({ ...s, [otherKey]: s[otherKey] + 10 }));
+          } else {
+            setLives((l) => ({ ...l, [otherKey]: l[otherKey] - 1 }));
+          }
+
+          if (lives[otherKey] - (correct ? 0 : 1) <= 0) {
+            const winner = myKey === 'p1' ? 'Player 1' : 'Player 2';
+
+            BluetoothService.sendMessage({
+              type: 'GAME_OVER',
+              winner,
+              scores: { player1: score.p1, player2: score.p2 },
+            });
+
+            router.replace({
+              pathname: '/gameover',
+              params: { winner },
+            });
+            return;
+          }
+
+          const nextTurn = myKey === 'p1' ? 1 : 2;
+          setCurrentTurn(nextTurn);
+
+          setTimeout(() => {
+            setCurrentCategory(null);
+            setCurrentQuestion(null);
+            setShowFeedback({ type: null, message: '' });
+          }, 2000);
+          break;
+        }
+
+        case 'TURN_CHANGED':
+          setCurrentTurn(msg.currentPlayer);
+          break;
+
+        case 'GAME_OVER':
+          router.replace({
+            pathname: '/gameover',
+            params: {
+              winner: msg.winner,
+              p1: msg.scores.player1,
+              p2: msg.scores.player2,
+            },
+          });
+          break;
+      }
+    },
+    [currentTurn, lives, score, pickQuestion, router]
+  );
+
+  useEffect(() => {
+    BluetoothService.onMessageReceived(handleRemoteMessage);
+    return () => BluetoothService.onMessageReceived(() => {});
+  }, [handleRemoteMessage]);
+
+  useEffect(() => {
+    setShowTurnAnim(true);
+    const id = setTimeout(() => setShowTurnAnim(false), 1800);
+    return () => clearTimeout(id);
+  }, [currentTurn]);
+
+  const handleSelectCategory = (category: string) => {
+    if (!isHost) return;
+
+    hostSelectCategory(category);
+  };
+
+  const handleAnswer = (option: string) => {
+    if (!currentQuestion) return;
+
+    const key: PlayerKey = myPlayerNumber === 1 ? 'p1' : 'p2';
+    const correct = option === currentQuestion.answer;
+
+    if (currentTurn !== myPlayerNumber) {
+      Alert.alert('No es tu turno');
+      return;
+    }
+
+    BluetoothService.sendMessage({
+      type: 'ANSWER_SUBMITTED',
+      answer: option,
+      isCorrect: correct,
+      score: 0,
+    });
+
+    if (correct) {
+      setScore((s) => ({ ...s, [key]: s[key] + 10 }));
+      setShowFeedback({ type: 'correct', message: t('game.correctFeedback') });
+    } else {
+      setLives((l) => ({ ...l, [key]: l[key] - 1 }));
+      setShowFeedback({
+        type: 'incorrect',
+        message: `${t('game.incorrectFeedback')} ${currentQuestion.answer}`,
+      });
+    }
+
+    if (lives[key] - (correct ? 0 : 1) <= 0) {
+      const winner = myPlayerNumber === 1 ? 'Player 2' : 'Player 1';
+
+      if (isHost) {
+        BluetoothService.sendMessage({
+          type: 'GAME_OVER',
+          winner,
+          scores: { player1: score.p1, player2: score.p2 },
+        });
+      }
+
+      router.replace({
+        pathname: '/gameover',
+        params: { winner },
+      });
+      return;
+    }
+
+    const next = myPlayerNumber === 1 ? 2 : 1;
+    BluetoothService.sendMessage({
+      type: 'TURN_CHANGED',
+      currentPlayer: next,
+    });
+    setCurrentTurn(next);
+
+    setTimeout(() => {
+      setCurrentCategory(null);
+      setCurrentQuestion(null);
+      setShowFeedback({ type: null, message: '' });
+    }, 2000);
+  };
+
+  return (
+    <View style={styles.container}>
+      <TurnIndicator visible={showTurnAnim} player={currentTurn} />
+
+      <View style={styles.turnBar}>
+        <Text style={styles.turnText}>
+          Turno de: {currentTurn === 1 ? 'Player 1' : 'Player 2'}{' '}
+          {currentTurn === myPlayerNumber ? '(Tú)' : ''}
+        </Text>
+      </View>
+
+      <View style={styles.statsBar}>
+        <View style={styles.playerBox}>
+          <Text style={styles.playerLabel}>P1</Text>
+          <Hearts lives={lives.p1} />
+          <Text style={styles.scoreText}>🏆 {score.p1}</Text>
+        </View>
+
+        <View style={styles.playerBox}>
+          <Text style={styles.playerLabel}>P2</Text>
+          <Hearts lives={lives.p2} />
+          <Text style={styles.scoreText}>🏆 {score.p2}</Text>
+        </View>
+      </View>
+
+      <ScrollView style={styles.scrollContent}>
+        {showFeedback.type && (
+          <View
+            style={[
+              styles.feedbackContainer,
+              showFeedback.type === 'correct'
+                ? styles.feedbackCorrect
+                : styles.feedbackIncorrect,
+            ]}
+          >
+            <Text style={styles.feedbackText}>
+              {showFeedback.type === 'correct' ? '🎉' : '❌'} {showFeedback.message}
+            </Text>
+          </View>
+        )}
+
+        {!currentCategory && !showFeedback.type && (
+          <CategoryWheel categories={categories} onSelect={handleSelectCategory} />
+        )}
+
+        {currentCategory && currentQuestion && !showFeedback.type && (
+          <QuestionCard item={currentQuestion} onAnswer={handleAnswer} />
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+/* ─────────────────────────────
+   ESTILOS COMPARTIDOS
+   ───────────────────────────── */
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1,
-    backgroundColor: '#FFFDF6'
+  container: { flex: 1, backgroundColor: '#FFFDF6' },
+  turnBar: {
+    paddingVertical: 8,
+    backgroundColor: '#FFEB3B',
+    alignItems: 'center',
+  },
+  turnText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   statsBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
+    paddingVertical: 10,
     backgroundColor: '#fff',
-    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderColor: '#ccc',
   },
-  statsText: {
-    fontSize: 16,
+  playerBox: {
+    alignItems: 'center',
+  },
+  playerLabel: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#333',
+    marginBottom: 4,
   },
-  scrollContent: {
-    flex: 1,
+  scoreText: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 4,
   },
-  scrollContentContainer: {
-    padding: 0,
-    paddingBottom: 0,
+  scrollContent: { flex: 1, padding: 10 },
+  feedbackContainer: {
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    borderWidth: 2,
   },
-  categoryBox: { 
+  feedbackCorrect: {
+    borderColor: '#4CAF50',
+    backgroundColor: '#E8F5E9',
+  },
+  feedbackIncorrect: {
+    borderColor: '#E53935',
+    backgroundColor: '#FFEBEE',
+  },
+  feedbackText: {
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  // Extras usados en single player
+  categoryBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -270,45 +529,25 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginRight: 10,
   },
-  categoryText: { 
-    fontSize: 18, 
+  categoryText: {
+    fontSize: 18,
     fontWeight: '700',
     color: '#1976D2',
   },
-  center: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    position: "absolute",
-    width: '100%',
-    bottom: 50
-  },
-  centerText: {
-    color: '#666',
-    fontSize: 16,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  feedbackContainer: {
-    padding: 20,
-    borderRadius: 15,
-    marginBottom: 20,
-    alignItems: 'center',
-    borderWidth: 3,
-  },
-  feedbackCorrect: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#4CAF50',
-  },
-  feedbackIncorrect: {
-    backgroundColor: '#FFEBEE',
-    borderColor: '#F44336',
-  },
-  feedbackText: {
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
+ center: {
+  alignItems: 'center',
+  width: '100%',
+  marginTop: 20,
+  marginBottom: 10,
+},
+
+ centerText: {
+  color: '#666',
+  fontSize: 16,
+  textAlign: 'center',
+  fontStyle: 'italic',
+},
+
   progressContainer: {
     marginTop: 20,
     padding: 12,

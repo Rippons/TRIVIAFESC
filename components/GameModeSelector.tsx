@@ -24,58 +24,91 @@ type DeviceItem = { id: string; name?: string; address?: string };
 export default function GameModeSelector({ visible, onClose }: Props) {
   const { t } = useLanguage();
   const router = useRouter();
+
   const [selectedMode, setSelectedMode] = useState<'single' | 'multi' | null>(null);
   const [multiplayerStep, setMultiplayerStep] =
-    useState<'select' | 'host' | 'join' | null>(null);
+    useState<'select' | 'host' | 'join'>('select');
   const [isBusy, setIsBusy] = useState(false);
   const [devices, setDevices] = useState<DeviceItem[]>([]);
+  const [connectedPlayer, setConnectedPlayer] = useState<string | null>(null);
 
-  // components/GameModeSelector.tsx
+  // 📡 Listener global de mensajes
   useEffect(() => {
     const cb = (msg: any) => {
-      if (msg?.type === 'GAME_START') {
+      if (!msg) return;
+
+      // Invitado se unió → actualizar UI del host
+      if (msg.type === 'PLAYER_JOINED') {
+        setConnectedPlayer(msg.playerName ?? 'Jugador');
+      }
+
+      // Host decide iniciar juego → ambos entran
+      if (msg.type === 'GAME_START') {
         onClose();
         router.push({ pathname: '/game', params: { mode: 'multi' } });
       }
     };
+
     BluetoothService.onMessageReceived(cb);
-    return () => BluetoothService.onMessageReceived(() => { }); // limpia callback
+    return () => BluetoothService.onMessageReceived(() => {});
   }, [router, onClose]);
 
-
+  // Cuando se cierra el modal → limpiar todo
   useEffect(() => {
-    // Limpia al cerrar
     if (!visible) {
       setSelectedMode(null);
-      setMultiplayerStep(null);
+      setMultiplayerStep('select');
       setDevices([]);
+      setConnectedPlayer(null);
       setIsBusy(false);
     }
   }, [visible]);
 
+  // ─────────────────────────────
+  // 🔹 MODO SINGLE PLAYER
+  // ─────────────────────────────
   const handleSinglePlayer = () => {
     onClose();
     router.push({ pathname: '/game', params: { mode: 'single' } });
   };
 
+  // ─────────────────────────────
+  // 🔹 ENTRAR A MENÚ MULTIJUGADOR
+  // ─────────────────────────────
   const handleMultiplayer = () => {
     setSelectedMode('multi');
     setMultiplayerStep('select');
   };
 
+  // ─────────────────────────────
+  // 🔹 HOST (Servidor)
+  // ─────────────────────────────
   const handleHost = async () => {
     setMultiplayerStep('host');
     setIsBusy(true);
     try {
       await BluetoothService.startServer();
     } catch (e: any) {
-      Alert.alert('No se pudo iniciar', e?.message ?? String(e));
+      Alert.alert('Error', e?.message ?? String(e));
       setMultiplayerStep('select');
     } finally {
       setIsBusy(false);
     }
   };
 
+  const startGameAsHost = async () => {
+    try {
+      await BluetoothService.sendMessage({ type: 'GAME_START' });
+      onClose();
+      router.push({ pathname: '/game', params: { mode: 'multi' } });
+    } catch {
+      Alert.alert('Error', 'No se pudo iniciar la partida');
+    }
+  };
+
+  // ─────────────────────────────
+  // 🔹 CLIENTE / INVITADO
+  // ─────────────────────────────
   const handleJoin = async () => {
     setMultiplayerStep('join');
     setIsBusy(true);
@@ -83,38 +116,42 @@ export default function GameModeSelector({ visible, onClose }: Props) {
       const found = await BluetoothService.searchDevices();
       setDevices(found);
     } catch (e: any) {
-      Alert.alert('No se pudo buscar', e?.message ?? String(e));
+      Alert.alert('Error', e?.message ?? String(e));
       setMultiplayerStep('select');
     } finally {
       setIsBusy(false);
     }
   };
 
-  // NO navegues aquí directamente; espera GAME_START
   const connectTo = async (dev: DeviceItem) => {
     setIsBusy(true);
     try {
       await BluetoothService.connectToDevice(dev.id);
-      // onClose(); router.push(...)  ❌  quítalo
+      // El host enviará GAME_START, así que aquí no navegamos
     } catch (e: any) {
-      Alert.alert('No se pudo conectar', e?.message ?? String(e));
+      Alert.alert('Error al conectar', e?.message ?? String(e));
     } finally {
       setIsBusy(false);
     }
   };
 
-
+  // ─────────────────────────────
+  // 🔹 BOTÓN ATRÁS
+  // ─────────────────────────────
   const handleBack = () => {
     if (multiplayerStep === 'select') {
       setSelectedMode(null);
-      setMultiplayerStep(null);
-    } else if (multiplayerStep === 'host' || multiplayerStep === 'join') {
-      setMultiplayerStep('select');
-      setDevices([]);
-      setIsBusy(false);
+      return;
     }
+    setMultiplayerStep('select');
+    setDevices([]);
+    setConnectedPlayer(null);
+    setIsBusy(false);
   };
 
+  // ─────────────────────────────
+  // 🔹 RENDERIZADOS
+  // ─────────────────────────────
   const renderMainMenu = () => (
     <>
       <Text style={styles.title}>{t('gameMode.title')}</Text>
@@ -183,9 +220,27 @@ export default function GameModeSelector({ visible, onClose }: Props) {
 
       <View style={styles.centerContent}>
         <Ionicons name="bluetooth" size={80} color="#2196F3" />
-        {isBusy && <ActivityIndicator size="large" color="#2196F3" style={styles.loader} />}
+
         <Text style={styles.waitingText}>{t('gameMode.waiting')}</Text>
-        <Text style={styles.waitingSubtext}>{t('gameMode.player')} 1: Tu dispositivo</Text>
+        <Text style={styles.waitingSubtext}>
+          {connectedPlayer
+            ? `${connectedPlayer} conectado`
+            : 'Esperando jugador...'}
+        </Text>
+
+        {isBusy && (
+          <ActivityIndicator
+            size="large"
+            color="#2196F3"
+            style={styles.loader}
+          />
+        )}
+
+        {connectedPlayer && (
+          <TouchableOpacity style={styles.startBtn} onPress={startGameAsHost}>
+            <Text style={styles.startBtnText}>{t('gameMode.startNow')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </>
   );
@@ -198,29 +253,45 @@ export default function GameModeSelector({ visible, onClose }: Props) {
 
       <View style={styles.centerContent}>
         <Ionicons name="search-circle" size={80} color="#9C27B0" />
-        {isBusy && <ActivityIndicator size="large" color="#9C27B0" style={styles.loader} />}
+
         <Text style={styles.waitingText}>{t('gameMode.searching')}</Text>
 
         <View style={styles.devicesList}>
-          <Text style={styles.devicesTitle}>Dispositivos disponibles:</Text>
+          <Text style={styles.devicesTitle}>Dispositivos:</Text>
+
           {devices.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: '#666' }}>
-              (Nada por ahora)
-            </Text>
+            <Text style={{ textAlign: 'center', color: '#666' }}>(Vacío)</Text>
           ) : (
             devices.map((d) => (
-              <TouchableOpacity key={d.id} style={styles.deviceCard} onPress={() => connectTo(d)}>
+              <TouchableOpacity
+                key={d.id}
+                style={styles.deviceCard}
+                onPress={() => connectTo(d)}
+              >
                 <Ionicons name="phone-portrait" size={24} color="#333" />
-                <Text style={styles.deviceName}>{d.name ?? d.address ?? d.id}</Text>
+                <Text style={styles.deviceName}>
+                  {d.name ?? d.address ?? d.id}
+                </Text>
                 <Ionicons name="chevron-forward" size={20} color="#ccc" />
               </TouchableOpacity>
             ))
           )}
         </View>
+
+        {isBusy && (
+          <ActivityIndicator
+            size="large"
+            color="#9C27B0"
+            style={styles.loader}
+          />
+        )}
       </View>
     </>
   );
 
+  // ─────────────────────────────
+  // 🔹 RETURN
+  // ─────────────────────────────
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
@@ -230,8 +301,11 @@ export default function GameModeSelector({ visible, onClose }: Props) {
           </TouchableOpacity>
 
           {!selectedMode && renderMainMenu()}
+
           {selectedMode === 'multi' && multiplayerStep === 'select' && renderMultiplayerSelect()}
+
           {selectedMode === 'multi' && multiplayerStep === 'host' && renderHostWaiting()}
+
           {selectedMode === 'multi' && multiplayerStep === 'join' && renderJoinSearching()}
         </View>
       </View>
@@ -239,6 +313,9 @@ export default function GameModeSelector({ visible, onClose }: Props) {
   );
 }
 
+// ─────────────────────────────
+// 🔹 ESTILOS
+// ─────────────────────────────
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -249,15 +326,15 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
     borderRadius: 20,
-    padding: 20,
+    padding: 25,
     width: '90%',
-    maxHeight: '80%',
+    maxHeight: '85%',
   },
   closeButton: { position: 'absolute', top: 15, right: 15, zIndex: 10 },
-  backButton: { marginBottom: 10 },
+  backButton: { marginBottom: 15 },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '900',
     color: '#333',
     textAlign: 'center',
     marginBottom: 30,
@@ -269,8 +346,6 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 15,
     marginBottom: 15,
-    borderWidth: 2,
-    borderColor: 'transparent',
   },
   iconContainer: {
     width: 60,
@@ -281,27 +356,53 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   modeInfo: { flex: 1 },
-  modeTitle: { fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 5 },
+  modeTitle: { fontSize: 18, fontWeight: '800', color: '#333', marginBottom: 5 },
   modeDesc: { fontSize: 14, color: '#666' },
-  centerContent: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  centerContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
   loader: { marginVertical: 20 },
   waitingText: {
-    fontSize: 20,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#333',
+    marginTop: 15,
+    textAlign: 'center',
+  },
+  waitingSubtext: {
+    fontSize: 16,
+    color: '#777',
+    marginTop: 5,
+    textAlign: 'center',
+  },
+  devicesList: { width: '100%', marginTop: 20 },
+  devicesTitle: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#333',
-    textAlign: 'center',
     marginBottom: 10,
   },
-  waitingSubtext: { fontSize: 14, color: '#666', textAlign: 'center' },
-  devicesList: { width: '100%', marginTop: 20 },
-  devicesTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 10 },
   deviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F7F7F7',
     padding: 15,
     borderRadius: 10,
     marginBottom: 10,
   },
   deviceName: { flex: 1, fontSize: 16, color: '#333', marginLeft: 15 },
+  startBtn: {
+    marginTop: 30,
+    backgroundColor: '#27AE60',
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 8,
+  },
+  startBtnText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 18,
+  },
 });
