@@ -9,8 +9,34 @@ import { QUESTIONS, Question } from '@/src/data/questions';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { supabase } from '@/lib/supabase';
 
 type PlayerKey = 'p1' | 'p2';
+
+async function saveScore(mode: 'single' | 'multi', score: number) {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      console.log('Error obteniendo usuario:', error.message);
+      return;
+    }
+    const user = data.user;
+    if (!user) return; // por si alguien juega sin estar logueado (no debería)
+
+    const { error: insertError } = await supabase.from('scores').insert({
+      user_id: user.id,
+      mode,
+      score,
+    });
+
+    if (insertError) {
+      console.log('Error guardando score:', insertError.message);
+    }
+  } catch (e) {
+    console.log('Error inesperado guardando score:', e);
+  }
+}
+
 
 /* ─────────────────────────────
    Componente raíz: decide modo
@@ -32,6 +58,8 @@ export default function Game() {
 function SingleGame() {
   const router = useRouter();
   const { t } = useLanguage();
+  const [hasSaved, setHasSaved] = useState(false);
+
 
   const categories = useMemo(() => Object.keys(QUESTIONS), []);
 
@@ -84,10 +112,15 @@ function SingleGame() {
 
   // Si las vidas llegan a 0 → redirigir a Game Over
   useEffect(() => {
-    if (lives <= 0) {
-      router.replace({ pathname: '/gameover', params: { score } });
+    if (lives <= 0 && !hasSaved) {
+      setHasSaved(true);
+      (async () => {
+        await saveScore('single', score);
+        router.replace({ pathname: '/gameover', params: { score } });
+      })();
     }
-  }, [lives, router, score]);
+  }, [lives, hasSaved, score, router]);
+
 
   // Cuando cambia la categoría, cargamos una pregunta
   useEffect(() => {
@@ -123,11 +156,16 @@ function SingleGame() {
       const totalQuestions = Object.values(QUESTIONS).flat().length;
 
       if (usedIds.size + 1 >= totalQuestions) {
-        setTimeout(() => {
+        setTimeout(async () => {
+          if (!hasSaved) {
+            setHasSaved(true);
+            await saveScore('single', newScore);
+          }
           router.replace({ pathname: '/gameover', params: { score: newScore } });
         }, 2000);
         return;
       }
+
 
       setTimeout(() => {
         setCurrentCategory(null);
@@ -226,6 +264,8 @@ function SingleGame() {
 function MultiGame() {
   const router = useRouter();
   const { t } = useLanguage();
+  const [hasSaved, setHasSaved] = useState(false);
+
 
   const categories = useMemo(() => Object.keys(QUESTIONS), []);
   const isHost = BluetoothService.isHostDevice();
@@ -261,7 +301,7 @@ function MultiGame() {
   };
 
   const handleRemoteMessage = useCallback(
-    (msg: GameMessage) => {
+    async (msg: GameMessage) => {
       switch (msg.type) {
         case 'CATEGORY_SELECTED': {
           const newQ = pickQuestion(msg.category);
@@ -289,6 +329,12 @@ function MultiGame() {
               winner,
               scores: { player1: score.p1, player2: score.p2 },
             });
+
+            if (!hasSaved) {
+              setHasSaved(true);
+              const myKey: PlayerKey = myPlayerNumber === 1 ? 'p1' : 'p2';
+              await saveScore('multi', score[myKey]);
+            }
 
             router.replace({
               pathname: '/gameover',
@@ -324,12 +370,12 @@ function MultiGame() {
           break;
       }
     },
-    [currentTurn, lives, score, pickQuestion, router]
+    [currentTurn, lives, score, pickQuestion, router, hasSaved, myPlayerNumber]
   );
 
   useEffect(() => {
     BluetoothService.onMessageReceived(handleRemoteMessage);
-    return () => BluetoothService.onMessageReceived(() => {});
+    return () => BluetoothService.onMessageReceived(() => { });
   }, [handleRemoteMessage]);
 
   useEffect(() => {
@@ -344,7 +390,7 @@ function MultiGame() {
     hostSelectCategory(category);
   };
 
-  const handleAnswer = (option: string) => {
+  const handleAnswer = async (option: string) => {
     if (!currentQuestion) return;
 
     const key: PlayerKey = myPlayerNumber === 1 ? 'p1' : 'p2';
@@ -382,6 +428,12 @@ function MultiGame() {
           winner,
           scores: { player1: score.p1, player2: score.p2 },
         });
+      }
+
+      if (!hasSaved) {
+        setHasSaved(true);
+        const myKey: PlayerKey = myPlayerNumber === 1 ? 'p1' : 'p2';
+        await saveScore('multi', score[myKey]);
       }
 
       router.replace({
@@ -534,19 +586,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1976D2',
   },
- center: {
-  alignItems: 'center',
-  width: '100%',
-  marginTop: 20,
-  marginBottom: 10,
-},
+  center: {
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 20,
+    marginBottom: 10,
+  },
 
- centerText: {
-  color: '#666',
-  fontSize: 16,
-  textAlign: 'center',
-  fontStyle: 'italic',
-},
+  centerText: {
+    color: '#666',
+    fontSize: 16,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
 
   progressContainer: {
     marginTop: 20,

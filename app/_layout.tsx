@@ -1,94 +1,47 @@
 // app/_layout.tsx
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { LanguageProvider, useLanguage } from '../contexts/LanguageContext';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import { Slot, useRouter, useSegments } from 'expo-router';
 
-function TabsLayout() {
-  const { t } = useLanguage();
+import { LanguageProvider } from '../contexts/LanguageContext';
+import { useAuth } from '../hooks/useAuth';
 
-  return (
-    <Tabs
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: '#E53935',
-        },
-        headerTintColor: '#fff',
-        headerTitleAlign: 'center',
-        headerTitleStyle: {
-          fontSize: 24,
-          fontWeight: '700',
-        },
-        tabBarActiveTintColor: '#E53935',
-        tabBarInactiveTintColor: '#999',
-        tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopWidth: 1,
-          borderTopColor: '#E0E0E0',
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="leaderboard"
-        options={{
-          title: t('tabs.leaderboard'),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trophy" size={size} color={color} />
-          ),
-        }}
-      />
+function RootNavigator() {
+  const { session, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t('tabs.home'),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
-          ),
-        }}
-      />
+  useEffect(() => {
+    if (loading) return;
 
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: t('tabs.profile'),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
-          ),
-        }}
-      />
+    // El grupo protegido es (tabs)
+    const inTabsGroup = segments[0] === '(tabs)';
 
-      {/* Pantallas sin tabs (ocultas de la barra de navegación) */}
-      <Tabs.Screen
-        name="game"
-        options={{
-          href: null,
-          title: t('game.title'),
-        }}
-      />
+    if (!session && inTabsGroup) {
+      // No logueado y quiere entrar a tabs → mándalo a login
+      router.replace('/login');
+    } else if (session && !inTabsGroup) {
+      // Logueado y en cualquier sitio que no sea tabs → mándalo al home (tabs/index)
+      router.replace('/');
+    }
+  }, [session, loading, segments, router]);
 
-      <Tabs.Screen
-        name="gameover"
-        options={{
-          href: null,
-          title: 'Game Over',
-        }}
-      />
-    </Tabs>
-  );
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  // Slot deja que expo-router renderice la ruta que toque (login o (tabs)/...)
+  return <Slot />;
 }
 
 export default function Layout() {
   return (
     <LanguageProvider>
-      <TabsLayout />
+      <RootNavigator />
     </LanguageProvider>
   );
 }

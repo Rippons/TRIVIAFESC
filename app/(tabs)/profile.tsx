@@ -1,20 +1,36 @@
 // app/profile.tsx
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export default function Profile() {
   const { t, language, setLanguage } = useLanguage();
+  const router = useRouter();
+
   const [isEditing, setIsEditing] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  
+
   const [userData, setUserData] = useState({
     name: t('profile.studentName'),
     email: 'estudiante@fesc.edu.co',
     career: 'Ingeniería de Sistemas',
     semester: '5°',
+    age: '18',            // 👈 nuevo
   });
+
 
   const [settings, setSettings] = useState({
     notifications: true,
@@ -23,7 +39,8 @@ export default function Profile() {
     darkMode: false,
   });
 
-  const [stats] = useState({
+  // 🔹 stats base: dejamos correctAnswers/totalQuestions ESTÁTICOS
+  const [stats, setStats] = useState({
     gamesPlayed: 15,
     totalScore: 850,
     averageScore: 56.7,
@@ -32,9 +49,95 @@ export default function Profile() {
     totalQuestions: 75,
   });
 
-  const handleSave = () => {
-    Alert.alert(t('profile.profileUpdated'), t('profile.profileUpdatedMessage'));
-    setIsEditing(false);
+  // ─────────────────────────────
+  // Cargar usuario + puntuaciones desde Supabase
+  // ─────────────────────────────
+  useEffect(() => {
+    async function loadUserAndScores() {
+      // Usuario logueado
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.log('Error cargando usuario:', error.message);
+        return;
+      }
+      const user = data.user;
+      if (!user) return;
+
+      // 👤 Datos de perfil desde user_metadata (si existen)
+      setUserData(prev => ({
+        ...prev,
+        name:
+          (user.user_metadata?.full_name as string | undefined) ??
+          (user.user_metadata?.name as string | undefined) ??
+          prev.name,
+        email: user.email ?? prev.email,
+        career: (user.user_metadata?.career as string | undefined) ?? prev.career,
+        semester: (user.user_metadata?.semester as string | undefined) ?? prev.semester,
+        age:
+          user.user_metadata?.age !== undefined && user.user_metadata?.age !== null
+            ? String(user.user_metadata?.age)
+            : prev.age,
+      }));
+
+
+      // 🏆 Cargar puntuaciones desde tabla "scores"
+      const { data: scoresData, error: scoresError } = await supabase
+        .from('scores')
+        .select('score')
+        .eq('user_id', user.id);
+
+      if (scoresError) {
+        console.log('Error cargando scores:', scoresError.message);
+        return;
+      }
+
+      if (!scoresData || scoresData.length === 0) {
+        // si nunca ha jugado, dejamos las stats por defecto
+        return;
+      }
+
+      const gamesPlayed = scoresData.length;
+      const totalScore = scoresData.reduce(
+        (sum: number, row: any) => sum + (row.score ?? 0),
+        0,
+      );
+      const bestScore = Math.max(...scoresData.map((row: any) => row.score ?? 0));
+      const averageScore = totalScore / gamesPlayed;
+
+      setStats(prev => ({
+        ...prev,
+        gamesPlayed,
+        totalScore,
+        bestScore,
+        averageScore,
+      }));
+    }
+
+    loadUserAndScores();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      // Guardar en metadatos del usuario en Supabase
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          full_name: userData.name,
+          career: userData.career,
+          semester: userData.semester,
+          age: userData.age ? Number(userData.age) : null,  // 👈 nuevo
+        },
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+
+      Alert.alert(t('profile.profileUpdated'), t('profile.profileUpdatedMessage'));
+      setIsEditing(false);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'No se pudo guardar el perfil');
+    }
   };
 
   const handleLanguageChange = async (lang: 'es' | 'en' | 'pt') => {
@@ -42,11 +145,11 @@ export default function Profile() {
     const langNames = {
       es: 'Español',
       en: 'English',
-      pt: 'Português'
+      pt: 'Português',
     };
     Alert.alert(
-      t('settings.languageChanged'), 
-      `${t('settings.languageChangedMessage')} ${langNames[lang]}`
+      t('settings.languageChanged'),
+      `${t('settings.languageChangedMessage')} ${langNames[lang]}`,
     );
   };
 
@@ -56,31 +159,53 @@ export default function Profile() {
       t('settings.logoutConfirm'),
       [
         { text: t('common.cancel'), style: 'cancel' },
-        { text: t('settings.logout'), style: 'destructive', onPress: () => {
-          Alert.alert(t('settings.logoutSuccess'), t('settings.logoutSuccessMessage'));
-          setShowSettings(false);
-        }},
+        {
+          text: t('settings.logout'),
+          style: 'destructive',
+          onPress: async () => {
+            // 1) Cerrar sesión en Supabase
+            const { error } = await supabase.auth.signOut();
+
+            if (error) {
+              Alert.alert('Error', error.message);
+              return;
+            }
+
+            // 2) Mensaje de éxito
+            Alert.alert(
+              t('settings.logoutSuccess'),
+              t('settings.logoutSuccessMessage')
+            );
+
+            // 3) Cerrar el modal de ajustes
+            setShowSettings(false);
+
+            // 4) Forzar navegación al login
+            router.replace('/login');
+          },
+        },
       ]
     );
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      t('settings.deleteAccount'),
-      t('settings.deleteConfirm'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('settings.deleteAccount'), style: 'destructive', onPress: () => {
+    Alert.alert(t('settings.deleteAccount'), t('settings.deleteConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.deleteAccount'),
+        style: 'destructive',
+        onPress: () => {
+          // Aquí normalmente llamarías a una función backend que borre el usuario.
           Alert.alert(t('settings.accountDeleted'), t('settings.accountDeletedMessage'));
-        }},
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   return (
     <View style={styles.container}>
       {/* Botón de configuración flotante */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.settingsButton}
         onPress={() => setShowSettings(true)}
       >
@@ -96,12 +221,12 @@ export default function Profile() {
           <View style={styles.avatarContainer}>
             <Ionicons name="person-circle" size={100} color="#E53935" />
           </View>
-          
+
           {isEditing ? (
             <TextInput
               style={styles.nameInput}
               value={userData.name}
-              onChangeText={(text) => setUserData({ ...userData, name: text })}
+              onChangeText={text => setUserData({ ...userData, name: text })}
             />
           ) : (
             <Text style={styles.name}>{userData.name}</Text>
@@ -112,7 +237,9 @@ export default function Profile() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{t('profile.personalInfo')}</Text>
-            <TouchableOpacity onPress={() => isEditing ? handleSave() : setIsEditing(true)}>
+            <TouchableOpacity
+              onPress={() => (isEditing ? handleSave() : setIsEditing(true))}
+            >
               <Ionicons
                 name={isEditing ? 'checkmark-circle' : 'create'}
                 size={24}
@@ -122,13 +249,13 @@ export default function Profile() {
           </View>
 
           <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
+            <View className="info-row" style={styles.infoRow}>
               <Ionicons name="mail" size={20} color="#666" />
               {isEditing ? (
                 <TextInput
                   style={styles.infoInput}
                   value={userData.email}
-                  onChangeText={(text) => setUserData({ ...userData, email: text })}
+                  onChangeText={text => setUserData({ ...userData, email: text })}
                   placeholder={t('profile.email')}
                 />
               ) : (
@@ -142,7 +269,7 @@ export default function Profile() {
                 <TextInput
                   style={styles.infoInput}
                   value={userData.career}
-                  onChangeText={(text) => setUserData({ ...userData, career: text })}
+                  onChangeText={text => setUserData({ ...userData, career: text })}
                   placeholder={t('profile.career')}
                 />
               ) : (
@@ -156,20 +283,39 @@ export default function Profile() {
                 <TextInput
                   style={styles.infoInput}
                   value={userData.semester}
-                  onChangeText={(text) => setUserData({ ...userData, semester: text })}
+                  onChangeText={text => setUserData({ ...userData, semester: text })}
                   placeholder={t('profile.semester')}
                 />
               ) : (
-                <Text style={styles.infoText}>{t('profile.semester')} {userData.semester}</Text>
+                <Text style={styles.infoText}>
+                  {t('profile.semester')} {userData.semester}
+                </Text>
               )}
             </View>
+            <View style={styles.infoRow}>
+              <Ionicons name="person" size={20} color="#666" />
+              {isEditing ? (
+                <TextInput
+                  style={styles.infoInput}
+                  value={userData.age}
+                  onChangeText={text => setUserData({ ...userData, age: text })}
+                  placeholder={t('profile.age') ?? 'Edad'}
+                  keyboardType="numeric"
+                />
+              ) : (
+                <Text style={styles.infoText}>
+                  {t('profile.age') ?? 'Edad'}: {userData.age}
+                </Text>
+              )}
+            </View>
+
           </View>
         </View>
 
         {/* Estadísticas */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('profile.statistics')}</Text>
-          
+
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Text style={styles.statValue}>{stats.gamesPlayed}</Text>
@@ -198,12 +344,15 @@ export default function Profile() {
               <View
                 style={[
                   styles.accuracyFill,
-                  { width: `${(stats.correctAnswers / stats.totalQuestions) * 100}%` }
+                  {
+                    width: `${(stats.correctAnswers / stats.totalQuestions) * 100}%`,
+                  },
                 ]}
               />
             </View>
             <Text style={styles.accuracyText}>
-              {stats.correctAnswers} {t('profile.correctAnswers')} {stats.totalQuestions} {t('profile.questions')} (
+              {stats.correctAnswers} {t('profile.correctAnswers')}{' '}
+              {stats.totalQuestions} {t('profile.questions')} (
               {((stats.correctAnswers / stats.totalQuestions) * 100).toFixed(1)}%)
             </Text>
           </View>
@@ -212,7 +361,7 @@ export default function Profile() {
         {/* Logros */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('profile.achievements')}</Text>
-          
+
           <View style={styles.achievementsContainer}>
             <View style={styles.achievementCard}>
               <Text style={styles.achievementIcon}>🎯</Text>
@@ -237,7 +386,7 @@ export default function Profile() {
         </View>
       </ScrollView>
 
-      {/* Modal de Configuración */}
+      {/* Modal de Configuración (lo dejo exactamente igual) */}
       <Modal
         visible={showSettings}
         animationType="slide"
@@ -257,19 +406,23 @@ export default function Profile() {
             <ScrollView style={styles.modalScroll}>
               {/* Idioma */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>{t('settings.language')}</Text>
+                <Text style={styles.settingSectionTitle}>
+                  {t('settings.language')}
+                </Text>
                 <View style={styles.settingCard}>
                   <TouchableOpacity
                     style={[
                       styles.languageOption,
-                      language === 'es' && styles.languageOptionActive
+                      language === 'es' && styles.languageOptionActive,
                     ]}
                     onPress={() => handleLanguageChange('es')}
                   >
-                    <Text style={[
-                      styles.languageText,
-                      language === 'es' && styles.languageTextActive
-                    ]}>
+                    <Text
+                      style={[
+                        styles.languageText,
+                        language === 'es' && styles.languageTextActive,
+                      ]}
+                    >
                       {t('settings.spanish')}
                     </Text>
                     {language === 'es' && (
@@ -280,14 +433,16 @@ export default function Profile() {
                   <TouchableOpacity
                     style={[
                       styles.languageOption,
-                      language === 'en' && styles.languageOptionActive
+                      language === 'en' && styles.languageOptionActive,
                     ]}
                     onPress={() => handleLanguageChange('en')}
                   >
-                    <Text style={[
-                      styles.languageText,
-                      language === 'en' && styles.languageTextActive
-                    ]}>
+                    <Text
+                      style={[
+                        styles.languageText,
+                        language === 'en' && styles.languageTextActive,
+                      ]}
+                    >
                       {t('settings.english')}
                     </Text>
                     {language === 'en' && (
@@ -298,14 +453,16 @@ export default function Profile() {
                   <TouchableOpacity
                     style={[
                       styles.languageOption,
-                      language === 'pt' && styles.languageOptionActive
+                      language === 'pt' && styles.languageOptionActive,
                     ]}
                     onPress={() => handleLanguageChange('pt')}
                   >
-                    <Text style={[
-                      styles.languageText,
-                      language === 'pt' && styles.languageTextActive
-                    ]}>
+                    <Text
+                      style={[
+                        styles.languageText,
+                        language === 'pt' && styles.languageTextActive,
+                      ]}
+                    >
                       {t('settings.portuguese')}
                     </Text>
                     {language === 'pt' && (
@@ -317,16 +474,22 @@ export default function Profile() {
 
               {/* Notificaciones y Sonidos */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>{t('settings.notifications')}</Text>
+                <Text style={styles.settingSectionTitle}>
+                  {t('settings.notifications')}
+                </Text>
                 <View style={styles.settingCard}>
                   <View style={styles.switchRow}>
                     <View style={styles.switchInfo}>
                       <Ionicons name="notifications" size={24} color="#666" />
-                      <Text style={styles.switchLabel}>{t('settings.notificationsToggle')}</Text>
+                      <Text style={styles.switchLabel}>
+                        {t('settings.notificationsToggle')}
+                      </Text>
                     </View>
                     <Switch
                       value={settings.notifications}
-                      onValueChange={(value) => setSettings({ ...settings, notifications: value })}
+                      onValueChange={value =>
+                        setSettings({ ...settings, notifications: value })
+                      }
                       trackColor={{ false: '#ccc', true: '#E53935' }}
                       thumbColor={settings.notifications ? '#fff' : '#f4f3f4'}
                     />
@@ -335,11 +498,15 @@ export default function Profile() {
                   <View style={styles.switchRow}>
                     <View style={styles.switchInfo}>
                       <Ionicons name="volume-high" size={24} color="#666" />
-                      <Text style={styles.switchLabel}>{t('settings.sound')}</Text>
+                      <Text style={styles.switchLabel}>
+                        {t('settings.sound')}
+                      </Text>
                     </View>
                     <Switch
                       value={settings.sound}
-                      onValueChange={(value) => setSettings({ ...settings, sound: value })}
+                      onValueChange={value =>
+                        setSettings({ ...settings, sound: value })
+                      }
                       trackColor={{ false: '#ccc', true: '#E53935' }}
                       thumbColor={settings.sound ? '#fff' : '#f4f3f4'}
                     />
@@ -348,11 +515,15 @@ export default function Profile() {
                   <View style={styles.switchRow}>
                     <View style={styles.switchInfo}>
                       <Ionicons name="phone-portrait" size={24} color="#666" />
-                      <Text style={styles.switchLabel}>{t('settings.vibration')}</Text>
+                      <Text style={styles.switchLabel}>
+                        {t('settings.vibration')}
+                      </Text>
                     </View>
                     <Switch
                       value={settings.vibration}
-                      onValueChange={(value) => setSettings({ ...settings, vibration: value })}
+                      onValueChange={value =>
+                        setSettings({ ...settings, vibration: value })
+                      }
                       trackColor={{ false: '#ccc', true: '#E53935' }}
                       thumbColor={settings.vibration ? '#fff' : '#f4f3f4'}
                     />
@@ -362,16 +533,22 @@ export default function Profile() {
 
               {/* Apariencia */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>{t('settings.appearance')}</Text>
+                <Text style={styles.settingSectionTitle}>
+                  {t('settings.appearance')}
+                </Text>
                 <View style={styles.settingCard}>
                   <View style={styles.switchRow}>
                     <View style={styles.switchInfo}>
                       <Ionicons name="moon" size={24} color="#666" />
-                      <Text style={styles.switchLabel}>{t('settings.darkMode')}</Text>
+                      <Text style={styles.switchLabel}>
+                        {t('settings.darkMode')}
+                      </Text>
                     </View>
                     <Switch
                       value={settings.darkMode}
-                      onValueChange={(value) => setSettings({ ...settings, darkMode: value })}
+                      onValueChange={value =>
+                        setSettings({ ...settings, darkMode: value })
+                      }
                       trackColor={{ false: '#ccc', true: '#E53935' }}
                       thumbColor={settings.darkMode ? '#fff' : '#f4f3f4'}
                     />
@@ -381,7 +558,9 @@ export default function Profile() {
 
               {/* Acerca de */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>{t('settings.about')}</Text>
+                <Text style={styles.settingSectionTitle}>
+                  {t('settings.about')}
+                </Text>
                 <View style={styles.settingCard}>
                   <TouchableOpacity style={styles.infoRow}>
                     <Ionicons name="help-circle" size={24} color="#666" />
@@ -403,31 +582,39 @@ export default function Profile() {
 
                   <View style={styles.infoRow}>
                     <Ionicons name="information-circle" size={24} color="#666" />
-                    <Text style={styles.infoText}>{t('settings.version')} 1.0.0</Text>
+                    <Text style={styles.infoText}>
+                      {t('settings.version')} 1.0.0
+                    </Text>
                   </View>
                 </View>
               </View>
 
               {/* Acciones de cuenta */}
               <View style={styles.settingSection}>
-                <Text style={styles.settingSectionTitle}>{t('settings.account')}</Text>
+                <Text style={styles.settingSectionTitle}>
+                  {t('settings.account')}
+                </Text>
                 <View style={styles.settingCard}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.actionButton}
                     onPress={handleLogout}
                   >
                     <Ionicons name="log-out" size={24} color="#FF9800" />
-                    <Text style={[styles.actionText, { color: '#FF9800' }]}>
+                    <Text
+                      style={[styles.actionText, { color: '#FF9800' }]}
+                    >
                       {t('settings.logout')}
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.actionButton}
                     onPress={handleDeleteAccount}
                   >
                     <Ionicons name="trash" size={24} color="#F44336" />
-                    <Text style={[styles.actionText, { color: '#F44336' }]}>
+                    <Text
+                      style={[styles.actionText, { color: '#F44336' }]}
+                    >
                       {t('settings.deleteAccount')}
                     </Text>
                   </TouchableOpacity>

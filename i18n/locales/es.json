@@ -14,6 +14,21 @@
     "home": "Inicio",
     "profile": "Perfil"
   },
+  "auth": {
+    "title": "Inicia sesión",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "loginButton": "Entrar",
+    "loading": "Entrando...",
+    "signupTitle": "Crear cuenta",
+    "signupButton": "Crear cuenta",
+    "signupLoading": "Creando cuenta...",
+    "missingFields": "Completa todos los campos",
+    "signupSuccessTitle": "Cuenta creada",
+    "signupSuccessMessage": "Revisa tu correo para confirmar la cuenta antes de iniciar sesión.",
+    "noAccount": "¿No tienes cuenta? Crear una",
+    "haveAccount": "¿Ya tienes cuenta? Inicia sesión"
+  },
   "home": {
     "title": "Trivia FESC",
     "subtitle": "Gira la ruleta y responde preguntas por categoría",
@@ -60,7 +75,7 @@
     "result": "🎉 ¡Resultado!",
     "availableCategories": "Categorías disponibles:"
   },
-    "gameover": {
+  "gameover": {
     "title": "¡Juego terminado!",
     "titleSingle": "¡Juego terminado!",
     "titleMulti": "¡Juego terminado!",
@@ -70,7 +85,6 @@
     "draw": "¡Empate!",
     "singleWinner": "Jugador"
   },
-
   "leaderboard": {
     "title": "🏆 Mejores Puntuaciones",
     "subtitle": "Top jugadores de Trivia FESC",
@@ -85,6 +99,7 @@
     "email": "Correo electrónico",
     "career": "Carrera",
     "semester": "Semestre",
+    "age": "Edad",
     "statistics": "📊 Estadísticas",
     "gamesPlayed": "Partidas Jugadas",
     "bestScore": "Mejor Puntaje",
