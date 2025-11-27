@@ -80,7 +80,7 @@ export default function Login() {
           Alert.alert(
             t('auth.signupSuccessTitle') ?? 'Cuenta creada',
             t('auth.signupSuccessMessage') ??
-              'Revisa tu correo para confirmar la cuenta antes de iniciar sesión.'
+            'Revisa tu correo para confirmar la cuenta antes de iniciar sesión.'
           );
           // volvemos al modo login
           setMode('login');
@@ -105,13 +105,14 @@ export default function Login() {
       {/* Campos extra solo al crear cuenta */}
       {!isLogin && (
         <>
+          <Text style={styles.label}>{t('auth.fullName') ?? 'Nombre completo'}</Text>
           <TextInput
             style={styles.input}
             placeholder={t('auth.fullName') ?? 'Nombre completo'}
             value={fullName}
             onChangeText={setFullName}
           />
-
+          <Text style={styles.label}>{t('auth.age') ?? 'Edad'}</Text>
           <TextInput
             style={styles.input}
             placeholder={t('auth.age') ?? 'Edad'}
@@ -119,14 +120,14 @@ export default function Login() {
             value={age}
             onChangeText={setAge}
           />
-
+          <Text style={styles.label}>{t('profile.career') ?? 'Carrera'}</Text>
           <TextInput
             style={styles.input}
             placeholder={t('profile.career') ?? 'Carrera'}
             value={career}
             onChangeText={setCareer}
           />
-
+          <Text style={styles.label}>{t('profile.semester') ?? 'Semestre (ej: 5°)'}</Text>
           <TextInput
             style={styles.input}
             placeholder={t('profile.semester') ?? 'Semestre (ej: 5°)'}
@@ -136,6 +137,7 @@ export default function Login() {
         </>
       )}
 
+      <Text style={styles.label}>{t('auth.email') ?? 'Email'}</Text>
       <TextInput
         style={styles.input}
         placeholder={t('auth.email') ?? 'Email'}
@@ -144,7 +146,7 @@ export default function Login() {
         value={email}
         onChangeText={setEmail}
       />
-
+      <Text style={styles.label}>{t('auth.password') ?? 'Contraseña'}</Text>
       <TextInput
         style={styles.input}
         placeholder={t('auth.password') ?? 'Contraseña'}
@@ -186,18 +188,25 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    padding: 24, 
-    justifyContent: 'center', 
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
     backgroundColor: '#F7FFF7',
   },
-  title: { 
-    fontSize: 28, 
-    fontWeight: '800', 
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
     marginBottom: 24,
     textAlign: 'center',
     color: '#333',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+    color: '#444',
+    marginTop: 10,
   },
   input: {
     backgroundColor: '#fff',
@@ -208,17 +217,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
   },
-  button: { 
-    backgroundColor: '#E53935', 
-    paddingVertical: 14, 
+  button: {
+    backgroundColor: '#E53935',
+    paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 8,
   },
-  buttonText: { 
-    color: '#fff', 
-    fontSize: 16, 
-    fontWeight: '600' 
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600'
   },
   toggleContainer: {
     marginTop: 16,

@@ -27,7 +27,9 @@
     "signupSuccessTitle": "Cuenta creada",
     "signupSuccessMessage": "Revisa tu correo para confirmar la cuenta antes de iniciar sesión.",
     "noAccount": "¿No tienes cuenta? Crear una",
-    "haveAccount": "¿Ya tienes cuenta? Inicia sesión"
+    "haveAccount": "¿Ya tienes cuenta? Inicia sesión",
+    "fullName": "Nombre completo",
+    "age": "Edad"
   },
   "home": {
     "title": "Trivia FESC",

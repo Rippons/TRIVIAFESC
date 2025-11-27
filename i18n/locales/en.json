@@ -27,7 +27,9 @@
     "signupSuccessTitle": "Account created",
     "signupSuccessMessage": "Check your email to confirm your account before logging in.",
     "noAccount": "Don’t have an account? Create one",
-    "haveAccount": "Already have an account? Log in"
+    "haveAccount": "Already have an account? Log in",
+    "fullName": "Full name",
+    "age": "Age"
   },
   "home": {
     "title": "Trivia FESC",
