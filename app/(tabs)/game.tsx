@@ -4,12 +4,12 @@ import Hearts from '@/components/Hearts';
 import QuestionCard from '@/components/QuestionCard';
 import TurnIndicator from '@/components/TurnIndicator';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/lib/supabase';
 import BluetoothService, { GameMessage } from '@/services/BluetoothService';
 import { QUESTIONS, Question } from '@/src/data/questions';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { supabase } from '@/lib/supabase';
 
 type PlayerKey = 'p1' | 'p2';
 
@@ -21,7 +21,7 @@ async function saveScore(mode: 'single' | 'multi', score: number) {
       return;
     }
     const user = data.user;
-    if (!user) return; // por si alguien juega sin estar logueado (no debería)
+    if (!user) return;
 
     const { error: insertError } = await supabase.from('scores').insert({
       user_id: user.id,
@@ -37,13 +37,12 @@ async function saveScore(mode: 'single' | 'multi', score: number) {
   }
 }
 
-
 /* ─────────────────────────────
    Componente raíz: decide modo
    ───────────────────────────── */
 export default function Game() {
   const params = useLocalSearchParams();
-  const mode = params.mode ?? 'single';
+  const mode = (params.mode as string) ?? 'single';
 
   if (mode === 'multi') {
     return <MultiGame />;
@@ -59,7 +58,6 @@ function SingleGame() {
   const router = useRouter();
   const { t } = useLanguage();
   const [hasSaved, setHasSaved] = useState(false);
-
 
   const categories = useMemo(() => Object.keys(QUESTIONS), []);
 
@@ -79,7 +77,7 @@ function SingleGame() {
       const translated = t(categoryKey);
       return translated !== categoryKey ? translated : category;
     },
-    [t]
+    [t],
   );
 
   const selectQuestionFromCategory = useCallback(
@@ -99,7 +97,7 @@ function SingleGame() {
                 setCurrentQuestion(null);
               },
             },
-          ]
+          ],
         );
         return;
       }
@@ -107,7 +105,7 @@ function SingleGame() {
       const q = available[Math.floor(Math.random() * available.length)];
       setCurrentQuestion(q);
     },
-    [usedIds, t]
+    [usedIds, t],
   );
 
   // Si las vidas llegan a 0 → redirigir a Game Over
@@ -120,7 +118,6 @@ function SingleGame() {
       })();
     }
   }, [lives, hasSaved, score, router]);
-
 
   // Cuando cambia la categoría, cargamos una pregunta
   useEffect(() => {
@@ -137,7 +134,8 @@ function SingleGame() {
   const handleAnswer = (option: string) => {
     if (!currentQuestion) return;
 
-    const correct = option === currentQuestion.answer;
+    const isTimeout = option === '__TIMEOUT__';
+    const correct = !isTimeout && option === currentQuestion.answer;
 
     if (correct) {
       const newScore = score + 10;
@@ -161,11 +159,13 @@ function SingleGame() {
             setHasSaved(true);
             await saveScore('single', newScore);
           }
-          router.replace({ pathname: '/gameover', params: { score: newScore } });
+          router.replace({
+            pathname: '/gameover',
+            params: { score: newScore },
+          });
         }, 2000);
         return;
       }
-
 
       setTimeout(() => {
         setCurrentCategory(null);
@@ -173,9 +173,14 @@ function SingleGame() {
         setShowFeedback({ type: null, message: '' });
       }, 2000);
     } else {
+      const baseMsg = t('game.incorrectFeedback');
+      const msg = isTimeout
+        ? `⏳ ${t('game.incorrectFeedback')}`
+        : `${baseMsg} ${currentQuestion.answer}`;
+
       setShowFeedback({
         type: 'incorrect',
-        message: `${t('game.incorrectFeedback')} ${currentQuestion.answer}`,
+        message: msg,
       });
 
       setLives((l) => l - 1);
@@ -266,14 +271,19 @@ function MultiGame() {
   const { t } = useLanguage();
   const [hasSaved, setHasSaved] = useState(false);
 
-
   const categories = useMemo(() => Object.keys(QUESTIONS), []);
   const isHost = BluetoothService.isHostDevice();
   const myPlayerNumber = isHost ? 1 : 2;
 
   const [currentTurn, setCurrentTurn] = useState<number>(1);
-  const [lives, setLives] = useState<{ p1: number; p2: number }>({ p1: 3, p2: 3 });
-  const [score, setScore] = useState<{ p1: number; p2: number }>({ p1: 0, p2: 0 });
+  const [lives, setLives] = useState<{ p1: number; p2: number }>({
+    p1: 3,
+    p2: 3,
+  });
+  const [score, setScore] = useState<{ p1: number; p2: number }>({
+    p1: 0,
+    p2: 0,
+  });
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [showFeedback, setShowFeedback] = useState<{
@@ -286,6 +296,16 @@ function MultiGame() {
   const pickQuestion = useCallback((category: string): Question => {
     const pool = QUESTIONS[category];
     return pool[Math.floor(Math.random() * pool.length)];
+  }, []);
+
+  // 🔁 Reset local al montar componente (por si algo quedó viejo)
+  useEffect(() => {
+    setLives({ p1: 3, p2: 3 });
+    setScore({ p1: 0, p2: 0 });
+    setCurrentTurn(1);
+    setCurrentCategory(null);
+    setCurrentQuestion(null);
+    setShowFeedback({ type: null, message: '' });
   }, []);
 
   const hostSelectCategory = (category: string) => {
@@ -303,6 +323,17 @@ function MultiGame() {
   const handleRemoteMessage = useCallback(
     async (msg: GameMessage) => {
       switch (msg.type) {
+        case 'RESET_GAME': {
+          // 🔥 Ambos jugadores reinician estado
+          setLives({ p1: 3, p2: 3 });
+          setScore({ p1: 0, p2: 0 });
+          setCurrentTurn(1);
+          setCurrentCategory(null);
+          setCurrentQuestion(null);
+          setShowFeedback({ type: null, message: '' });
+          break;
+        }
+
         case 'CATEGORY_SELECTED': {
           const newQ = pickQuestion(msg.category);
           setCurrentCategory(msg.category);
@@ -316,9 +347,15 @@ function MultiGame() {
           const correct = msg.isCorrect;
 
           if (correct) {
-            setScore((s) => ({ ...s, [otherKey]: s[otherKey] + 10 }));
+            setScore((s) => ({
+              ...s,
+              [otherKey]: s[otherKey] + 10,
+            }));
           } else {
-            setLives((l) => ({ ...l, [otherKey]: l[otherKey] - 1 }));
+            setLives((l) => ({
+              ...l,
+              [otherKey]: l[otherKey] - 1,
+            }));
           }
 
           if (lives[otherKey] - (correct ? 0 : 1) <= 0) {
@@ -332,8 +369,8 @@ function MultiGame() {
 
             if (!hasSaved) {
               setHasSaved(true);
-              const myKey: PlayerKey = myPlayerNumber === 1 ? 'p1' : 'p2';
-              await saveScore('multi', score[myKey]);
+              const myKey2: PlayerKey = myPlayerNumber === 1 ? 'p1' : 'p2';
+              await saveScore('multi', score[myKey2]);
             }
 
             router.replace({
@@ -368,14 +405,19 @@ function MultiGame() {
             },
           });
           break;
+
+        default:
+          break;
       }
     },
-    [currentTurn, lives, score, pickQuestion, router, hasSaved, myPlayerNumber]
+    [currentTurn, lives, score, pickQuestion, router, hasSaved, myPlayerNumber],
   );
 
   useEffect(() => {
     BluetoothService.onMessageReceived(handleRemoteMessage);
-    return () => BluetoothService.onMessageReceived(() => { });
+    return () => {
+      BluetoothService.onMessageReceived(() => {});
+    };
   }, [handleRemoteMessage]);
 
   useEffect(() => {
@@ -385,37 +427,56 @@ function MultiGame() {
   }, [currentTurn]);
 
   const handleSelectCategory = (category: string) => {
-    if (!isHost) return;
+    if (currentTurn !== myPlayerNumber) {
+      Alert.alert('Espera tu turno');
+      return;
+    }
 
-    hostSelectCategory(category);
+    if (isHost) {
+      hostSelectCategory(category);
+    } else {
+      BluetoothService.sendMessage({
+        type: 'CATEGORY_SELECTED',
+        category,
+      });
+      setCurrentCategory(category);
+      setCurrentQuestion(pickQuestion(category));
+    }
   };
 
   const handleAnswer = async (option: string) => {
     if (!currentQuestion) return;
 
     const key: PlayerKey = myPlayerNumber === 1 ? 'p1' : 'p2';
-    const correct = option === currentQuestion.answer;
+    const isTimeout = option === '__TIMEOUT__';
+    const correct = !isTimeout && option === currentQuestion.answer;
 
     if (currentTurn !== myPlayerNumber) {
+      // En teoría no debería pasar porque QuestionCard ya está deshabilitado
       Alert.alert('No es tu turno');
       return;
     }
 
     BluetoothService.sendMessage({
       type: 'ANSWER_SUBMITTED',
-      answer: option,
+      answer: isTimeout ? '' : option,
       isCorrect: correct,
       score: 0,
     });
 
     if (correct) {
       setScore((s) => ({ ...s, [key]: s[key] + 10 }));
-      setShowFeedback({ type: 'correct', message: t('game.correctFeedback') });
+      setShowFeedback({
+        type: 'correct',
+        message: t('game.correctFeedback'),
+      });
     } else {
       setLives((l) => ({ ...l, [key]: l[key] - 1 }));
       setShowFeedback({
         type: 'incorrect',
-        message: `${t('game.incorrectFeedback')} ${currentQuestion.answer}`,
+        message: isTimeout
+          ? '⏳ Tiempo agotado'
+          : `${t('game.incorrectFeedback')} ${currentQuestion.answer}`,
       });
     }
 
@@ -499,11 +560,20 @@ function MultiGame() {
         )}
 
         {!currentCategory && !showFeedback.type && (
-          <CategoryWheel categories={categories} onSelect={handleSelectCategory} />
+          <CategoryWheel
+            categories={categories}
+            onSelect={handleSelectCategory}
+            disabled={currentTurn !== myPlayerNumber}
+          />
         )}
 
         {currentCategory && currentQuestion && !showFeedback.type && (
-          <QuestionCard item={currentQuestion} onAnswer={handleAnswer} />
+          <QuestionCard
+            item={currentQuestion}
+            onAnswer={handleAnswer}
+            category={currentCategory || 'Ingenieria'}
+            disabled={currentTurn !== myPlayerNumber}
+          />
         )}
       </ScrollView>
     </View>

@@ -1,33 +1,84 @@
 // components/QuestionCard.tsx
 import { Question } from '@/src/data/questions';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface Props {
   item: Question;
   onAnswer: (option: string) => void;
   category?: string;
-  disabled?: boolean; // 🔥 Nuevo: bloquear si NO es tu turno
+  disabled?: boolean; // 🔥 Bloquear si NO es tu turno
 }
 
+// 👉 Normalizador para evitar problemas con acentos, mayúsculas y espacios
+const normalize = (str: string) =>
+  str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+// 👉 Colores por categoría normalizada
 const categoryColors: Record<string, string> = {
-  Ingenieria: '#FF6B35',
-  Medicina: '#4ECDC4',
+  ingenieria: '#FF6B35',
+  medicina: '#4ECDC4',
 };
 
 export default function QuestionCard({
   item,
   onAnswer,
   category = 'Ingenieria',
-  disabled = false, // 🔥 Valor por defecto
+  disabled = false,
 }: Props) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(20);
 
-  const headerColor = categoryColors[category] || '#FF6B35';
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const headerColor =
+    categoryColors[normalize(category)] || '#FF6B35';
+
+  // 🔥 Temporizador de 20 segundos
+  useEffect(() => {
+    // Si no es tu turno, no corremos timer
+    if (disabled) return;
+
+    // Reiniciar contador cuando cambia de pregunta
+    setTimeLeft(20);
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+          }
+          // Tiempo agotado -> mandamos código especial
+          onAnswer('__TIMEOUT__');
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [item.id, disabled, onAnswer]);
 
   const handleSelectOption = (option: string) => {
-    if (disabled) return; // 🚫 Bloquear si NO es tu turno
+    if (disabled) return; // 🚫 Bloqueado por turno
+
+    // Paramos el timer porque ya respondió
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
 
     const correct = option === item.answer;
     setSelectedOption(option);
@@ -55,6 +106,13 @@ export default function QuestionCard({
         <Text style={styles.question}>{item.question}</Text>
       </View>
 
+      {/* Temporizador */}
+      {!disabled && (
+        <View style={styles.timerBox}>
+          <Text style={styles.timerText}>⏳ {timeLeft}s</Text>
+        </View>
+      )}
+
       {/* Opciones */}
       <View style={styles.optionsContainer}>
         {item.options.map((option, index) => {
@@ -65,20 +123,27 @@ export default function QuestionCard({
               key={index}
               style={[
                 styles.optionButton,
-                isSelected &&
+
+                // ⛔️ Si está deshabilitado, NO mostrar estilos de correcto/incorrecto
+                !disabled &&
+                  isSelected &&
                   (isCorrect
                     ? styles.optionButtonCorrect
                     : styles.optionButtonIncorrect),
-                disabled && styles.disabledOption, // 🔥 Estilo bloqueado
+
+                disabled && styles.disabledOption,
               ]}
               onPress={() => handleSelectOption(option)}
               activeOpacity={disabled ? 1 : 0.7}
-              disabled={disabled} // 🔥 Bloqueo real
+              disabled={disabled}
             >
               <Text
                 style={[
                   styles.optionText,
-                  isSelected && styles.optionTextSelected,
+
+                  // ⛔️ No aplicar estilo de seleccionado cuando está disabled
+                  !disabled && isSelected && styles.optionTextSelected,
+
                   disabled && { opacity: 0.5 },
                 ]}
               >
@@ -156,6 +221,18 @@ const styles = StyleSheet.create({
     lineHeight: 30,
   },
 
+  timerBox: {
+    marginTop: 10,
+    alignItems: 'center',
+    padding: 10,
+  },
+
+  timerText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#E53935',
+  },
+
   optionsContainer: {
     marginTop: 20,
     gap: 12,
@@ -188,7 +265,7 @@ const styles = StyleSheet.create({
   },
 
   disabledOption: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
 
   optionText: {

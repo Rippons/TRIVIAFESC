@@ -11,11 +11,12 @@ import RNBluetoothClassicLib, {
 export type GameMessage =
   | { type: 'PLAYER_JOINED'; playerName: string }
   | { type: 'GAME_START' }
+  | { type: 'RESET_GAME' }                // ⬅️ NUEVO ✔
   | { type: 'CATEGORY_SELECTED'; category: string }
   | { type: 'ANSWER_SUBMITTED'; answer: string; isCorrect: boolean; score: number }
   | { type: 'TURN_CHANGED'; currentPlayer: number }
   | { type: 'GAME_OVER'; winner: string; scores: { player1: number; player2: number } }
-  | { type: 'REQUEST_SPIN_CATEGORY' }; // 🔥 Para que el otro gire la ruleta también
+  | { type: 'REQUEST_SPIN_CATEGORY' };
 
 export interface BluetoothDevice {
   id: string;
@@ -28,9 +29,8 @@ type Transport = 'bluetooth' | 'websocket';
 // =========================
 // CONFIG DE WEBSOCKET
 // =========================
-const WS_URL = 'ws://localhost:8787'; // <-- Cambiar a tu LAN si usas WS en vez de BT
+const WS_URL = 'ws://localhost:8787';
 
-// Evita errores en web/iOS/ExpoGo
 const RNBluetoothClassic: any = RNBluetoothClassicLib;
 
 class BluetoothService {
@@ -39,10 +39,9 @@ class BluetoothService {
   private messageCallback: ((message: GameMessage) => void) | null = null;
   private subscriptions: BluetoothEventSubscription[] = [];
 
-  // Fallback WebSocket
+  // WebSocket
   private ws: WebSocket | null = null;
 
-  // Determina transporte: Bluetooth real o WS
   private get transport(): Transport {
     const supportsBT =
       Platform.OS === 'android' &&
@@ -97,15 +96,22 @@ class BluetoothService {
       });
 
       this.listenToDevice(serverDevice);
+
+      // 🔥 HOST RESETEA EL JUEGO APENAS INICIA
+      await this.sendMessage({ type: 'RESET_GAME' });
+
       return;
     }
 
-    // Fallback WebSocket
+    // WebSocket fallback
     this.isHost = true;
     await this.ensureWS();
     this.sendRawWS({ _sys: 'hello', role: 'host' });
 
     this.onMessage({ type: 'PLAYER_JOINED', playerName: 'Invitado' });
+
+    // 🔥 RESET GAME vía WebSocket
+    this.sendRawWS({ type: 'RESET_GAME' });
   }
 
   // =========================
@@ -124,7 +130,6 @@ class BluetoothService {
       }));
     }
 
-    // Fallback WS
     return [{ id: 'ws-room', name: 'Sala LAN (WebSocket)' }];
   }
 
@@ -142,7 +147,6 @@ class BluetoothService {
 
       this.listenToDevice(device);
 
-      // Envía handshake
       await device.write(
         JSON.stringify({
           type: 'PLAYER_JOINED',
@@ -153,7 +157,6 @@ class BluetoothService {
       return;
     }
 
-    // WS fallback
     this.isHost = false;
     await this.ensureWS();
     this.sendRawWS({ _sys: 'hello', role: 'guest' });
@@ -181,7 +184,7 @@ class BluetoothService {
   }
 
   // =========================
-  // MANEJO DE WS
+  // WEBSOCKET
   // =========================
   private ensureWS(): Promise<void> {
     if (this.ws && (this.ws.readyState === 1 || this.ws.readyState === 0))
@@ -223,7 +226,6 @@ class BluetoothService {
   async sendMessage(msg: GameMessage): Promise<void> {
     if (this.transport === 'bluetooth') {
       if (!this.connectedDevice) throw new Error('No conectado');
-
       await this.connectedDevice.write(JSON.stringify(msg) + '\n');
       return;
     }
@@ -239,7 +241,7 @@ class BluetoothService {
   }
 
   // =========================
-  // PROCESAR MENSAJE
+  // PROCESAR MENSAJES ENTRANTES
   // =========================
   private onMessage(message: GameMessage) {
     console.log('📥 Mensaje recibido:', message);
@@ -247,7 +249,6 @@ class BluetoothService {
     // Host auto-inicia partida al recibir PLAYER_JOINED
     if (this.isHost && message.type === 'PLAYER_JOINED' && this.connectedDevice) {
       const startMsg: GameMessage = { type: 'GAME_START' };
-
       this.connectedDevice
         .write(JSON.stringify(startMsg) + '\n')
         .catch(() => {});
